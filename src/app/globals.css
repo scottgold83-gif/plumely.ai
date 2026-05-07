@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #ffffff;
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #cbdbf5;
+  --color-surface-low: #eff4ff;
+  --color-surface-mid: #e5eeff;
+  --color-surface-high: #dce9ff;
+  --color-surface-highest: #d3e4fe;
+
+  --color-ink: #0b1c30;
+  --color-ink-muted: #434656;
+  --color-outline: #c3c5d9;
+  --color-outline-strong: #737688;
+
+  --color-primary: #003ec7;
+  --color-primary-bright: #0052ff;
+  --color-on-primary: #ffffff;
+  --color-primary-soft: #dde1ff;
+
+  --color-accent: #f59e0b;
+  --color-accent-soft: #ffddb8;
+
+  --color-error: #ba1a1a;
+  --color-success: #16a34a;
+
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
+  --shadow-raised: 0 4px 12px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.08);
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+html,
+body {
+  background: var(--color-background);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100dvh;
+}
+
+/* Subtle focus ring matching primary */
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--color-primary-bright);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
