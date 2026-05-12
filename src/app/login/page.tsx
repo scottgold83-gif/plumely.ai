@@ -3,8 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lightbulb, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { Logo } from "@/components/Logo";
 
 type Mode = "signin" | "signup";
 
@@ -51,11 +52,8 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col bg-background">
       <header className="border-b border-outline/40">
         <div className="mx-auto flex h-16 max-w-6xl items-center px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-on-primary">
-              <Lightbulb className="h-4 w-4" />
-            </span>
-            <span className="text-lg font-bold tracking-tight">Plumely</span>
+          <Link href="/" aria-label="Plumely home">
+            <Logo size={32} />
           </Link>
         </div>
       </header>

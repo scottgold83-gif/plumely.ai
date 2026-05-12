@@ -7,11 +7,28 @@ const MODEL = "gemini-2.5-flash-image";
 
 const MASTER_PROMPT = `You are a photorealistic interior visualization engine. You will receive TWO images:
 
-IMAGE 1: A lighting product (the "FIXTURE") — this could be a pendant, chandelier, floor lamp, table lamp, wall sconce, LED strip, neon sign, recessed light, or any other lighting product.
+IMAGE 1: A lighting product (the "FIXTURE") — this could be a pendant, chandelier, floor lamp, table lamp, wall sconce, LED strip, neon sign, recessed light, or any other lighting product. May be a product photograph OR a hand-drawn sketch / concept rendering.
 
-IMAGE 2: A room photograph (the "ROOM") — the customer's actual space.
+IMAGE 2: A room (the "ROOM") — the customer's actual space. May be a photograph OR an architectural sketch / concept drawing.
 
-YOUR TASK: Generate ONE photorealistic image showing the FIXTURE installed in the ROOM, turned ON, as if professionally photographed in that exact space.
+YOUR TASK: Generate ONE photorealistic image showing the FIXTURE installed in the ROOM, turned ON, with output quality at the level of Architectural Digest, Dezeen, or Dwell magazine — museum-quality interior photography.
+
+═══════════════════════════════════
+STEP 0 — INPUT FORMAT DETECTION (CRITICAL)
+═══════════════════════════════════
+First, determine the input type for each image:
+
+A) PHOTOGRAPH: A real photo of an existing space or product.
+   → Preserve EVERYTHING exactly (geometry, materials, furniture, palette).
+   → Only add the fixture and its light. The "Absolute Rules" below apply strictly.
+
+B) SKETCH / LINE DRAWING / CONCEPT RENDER: A hand-drawn or schematic representation.
+   → PRESERVE the architectural geometry (wall positions, ceiling height, openings, structural lines, camera angle, perspective).
+   → TRANSLATE the sketch into a photorealistic interior using premium contemporary materials and finishes (see palette below).
+   → For a fixture sketch: render it as a finished designer product with refined materials, micro-textures, and realistic optics.
+   → For a room sketch: furnish and finish it as a high-end contemporary interior consistent with its geometry.
+
+The "Absolute Rules" still apply to architectural geometry — never change wall positions, openings, ceiling height, or camera angle, even when translating a sketch.
 
 ═══════════════════════════════════
 STEP 1 — ANALYZE THE FIXTURE
@@ -117,8 +134,8 @@ If any of these are missing, the output is incorrect.
 ═══════════════════════════════════
 ABSOLUTE RULES — DO NOT VIOLATE
 ═══════════════════════════════════
-✗ DO NOT add, remove, or move any furniture, objects, plants, or decor
-✗ DO NOT change wall colors, flooring, paint, or textures (color BLEED from the fixture is allowed and expected, but the underlying surface color stays the same)
+✗ DO NOT add, remove, or move any furniture, objects, plants, or decor when the ROOM input is a PHOTOGRAPH (when it's a sketch, see STEP 0)
+✗ DO NOT change wall colors, flooring, paint, or textures when the ROOM input is a PHOTOGRAPH — color BLEED from the fixture is always allowed
 ✗ DO NOT change the camera angle, framing, crop, or aspect ratio
 ✗ DO NOT invent a different room or replace any part of it
 ✗ DO NOT add extra fixtures beyond the one provided
@@ -133,29 +150,90 @@ ABSOLUTE RULES — DO NOT VIOLATE
 ✓ DO add reflections on glossy surfaces where physically accurate
 
 ═══════════════════════════════════
+QUALITY STANDARD — MUSEUM-GRADE FINISH
+═══════════════════════════════════
+Output must read like a feature shoot in Architectural Digest, Dezeen, or Dwell.
+
+MATERIAL VOCABULARY (use as appropriate to the room's apparent style):
+- Walls: soft off-white plaster, warm limewash, honed Carrara or Calacatta marble cladding, polished or microcement concrete
+- Floors: wide-plank European oak, polished concrete, honed travertine, large-format porcelain
+- Joinery / cabinetry: matte black metalwork, brushed brass, light natural oak veneer, fluted oak, lacquered MDF
+- Surfaces: bouclé upholstery, leather, raw silk, linen, hand-woven wool rugs
+- Stone: Calacatta / Carrara / Taj Mahal quartzite — visible veining, honed (not polished) finish
+- Glass: low-iron frameless glazing, slim aluminium / matte black framing
+
+LIGHT FIXTURE FINISH (when translating a sketch into a refined product):
+- Matte black or hand-blackened steel exterior
+- Brushed brass or warm-tinted aluminum interior
+- Sculpted curved dome / bell shades with micro-textured surface
+- Integrated warm 2700K LEDs — visible filament suggestion in the bulb glass
+- Caustics on adjacent marble / glass / metal surfaces
+- Soft directional bloom + gentle bokeh from any background lights
+
+CAMERA + ATMOSPHERE:
+- Cinematic perspective, slight wide-angle compression (28–35mm equivalent)
+- Subtle depth of field — foreground sharp, distant garden / window views softly blurred with natural bokeh
+- Warm golden-hour daylight raking across surfaces — subtle volumetric god rays where light passes through openings
+- Faint atmospheric haze in deep shadows — rich tonal range, never crushed black or blown highlights
+- Low-noise / low-grain — clean digital cinema look
+
+═══════════════════════════════════
 OUTPUT
 ═══════════════════════════════════
-Return a single photorealistic image, same aspect ratio and resolution as the room photo, indistinguishable from a real photograph taken in that room with the fixture installed and switched on.`;
+Return a single photorealistic image, same aspect ratio and resolution as the room input. The result must be indistinguishable from a professional architectural photograph published in a top-tier interior magazine. No text, no logos, no watermarks, no compression artifacts.`;
+
+export type LightType =
+  | "ceiling"
+  | "wall"
+  | "hanging"
+  | "chandelier"
+  | "outdoor";
 
 export type GeneratePayload = {
   generationId: string;
   userId: string;
   roomPath: string;
   lightPath: string;
+  /** User-declared fixture category. Takes precedence over inference. */
+  lightType?: LightType;
+};
+
+/**
+ * Mounting rule by user-declared light type. Injected at the top of the
+ * prompt at runtime when present.
+ */
+const LIGHT_TYPE_HINT: Record<LightType, string> = {
+  ceiling:
+    "USER-DECLARED LIGHT TYPE: CEILING-MOUNT. Treat the fixture as a flush- or semi-flush ceiling fixture. Mount it directly to the ceiling with no cord (or a very short stem). Centred over the natural focal area of the room.",
+  wall:
+    "USER-DECLARED LIGHT TYPE: WALL-MOUNT. Treat the fixture as a wall sconce or picture light. Mount it flush to a wall at a natural eye-level/architectural position — beside a bed, alongside a mirror, flanking an artwork, or along a hallway.",
+  hanging:
+    "USER-DECLARED LIGHT TYPE: HANGING / PENDANT. Treat the fixture as a pendant hanging on a cord from the ceiling. Suspend it from the ceiling with a visible cord/canopy. Place it over a natural focal point — dining table, kitchen island, bedside, entryway.",
+  chandelier:
+    "USER-DECLARED LIGHT TYPE: CHANDELIER. Treat the fixture as a multi-arm chandelier hanging from the ceiling. Suspend it centrally over a dining table, foyer, or stairwell. Larger scale and presence than a single pendant.",
+  outdoor:
+    "USER-DECLARED LIGHT TYPE: OUTDOOR. Treat the fixture as an exterior fixture — pathway, porch, sconce, or post light. Mount it appropriately in an outdoor architectural setting (entry, façade, deck, garden path).",
 };
 
 export const generateVisualization = task({
   id: "generate-visualization",
   maxDuration: 240,
   run: async (payload: GeneratePayload) => {
-    const { generationId, userId, roomPath, lightPath } = payload;
+    const { generationId, userId, roomPath, lightPath, lightType } = payload;
     const supabase = createSupabaseAdminClient();
+
+    // If the user declared a light type, prepend an authoritative hint so the
+    // model treats that category as canonical and mounts the fixture accordingly.
+    const finalPrompt = lightType
+      ? `${LIGHT_TYPE_HINT[lightType]}\n\n${MASTER_PROMPT}`
+      : MASTER_PROMPT;
 
     logger.log("Starting generation", {
       generationId,
       userId,
       roomPath,
       lightPath,
+      lightType: lightType ?? "(none — model infers)",
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
       serviceKeyPresent: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       serviceKeyPrefix: process.env.SUPABASE_SERVICE_ROLE_KEY?.slice(0, 8),
@@ -172,7 +250,7 @@ export const generateVisualization = task({
 
     await supabase
       .from("generations")
-      .update({ status: "running", model: MODEL, prompt: MASTER_PROMPT })
+      .update({ status: "running", model: MODEL, prompt: finalPrompt })
       .eq("id", generationId);
 
     try {
@@ -187,7 +265,7 @@ export const generateVisualization = task({
       const response = await ai.models.generateContent({
         model: MODEL,
         contents: [
-          { text: MASTER_PROMPT },
+          { text: finalPrompt },
           {
             inlineData: {
               mimeType: lightBlob.mimeType,

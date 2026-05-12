@@ -8,10 +8,26 @@ const STORAGE_BUCKET = "plumely-uploads";
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+type LightType =
+  | "ceiling"
+  | "wall"
+  | "hanging"
+  | "chandelier"
+  | "outdoor";
+
+const ALLOWED_LIGHT_TYPES: ReadonlySet<LightType> = new Set([
+  "ceiling",
+  "wall",
+  "hanging",
+  "chandelier",
+  "outdoor",
+]);
+
 type LightMeta = {
   name?: string;
   brand?: string;
   sku?: string;
+  type?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -125,11 +141,19 @@ export async function POST(request: NextRequest) {
 
   // 5. Enqueue the Trigger.dev task.
   try {
+    // Validate user-declared light type against the allowed set.
+    const lightType =
+      meta.type &&
+      ALLOWED_LIGHT_TYPES.has(meta.type as LightType)
+        ? (meta.type as LightType)
+        : undefined;
+
     const handle = await generateVisualization.trigger({
       generationId,
       userId: user.id,
       roomPath,
       lightPath,
+      lightType,
     });
     await supabase
       .from("generations")
