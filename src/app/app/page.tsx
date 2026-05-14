@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import StudioClient from "./StudioClient";
 
@@ -10,7 +9,8 @@ export default async function StudioPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
-
-  return <StudioClient userEmail={user.email ?? ""} />;
+  // No sign-in gate — customers land directly on the studio.
+  // If the visitor isn't authenticated, the client signs them in
+  // anonymously on mount so the existing API/RLS flow keeps working.
+  return <StudioClient userEmail={user?.email ?? ""} />;
 }

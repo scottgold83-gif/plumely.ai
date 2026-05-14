@@ -16,6 +16,7 @@ import {
   LogOut,
   Plus,
   RefreshCcw,
+  Send,
   Sparkles,
   X,
   type LucideIcon,
@@ -153,9 +154,37 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openTemplate, setOpenTemplate] = useState<RoomTemplate | null>(null);
+  const [userPrompt, setUserPrompt] = useState("");
+  // 'I am a human' gate — true once the user passes the checkbox.
+  // Read from sessionStorage so we don't re-prompt on every render in the same tab.
+  const [verifiedHuman, setVerifiedHuman] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
+
+  // Initial hydration: read the human-verified flag, kick off anonymous sign-in if needed.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        if (window.sessionStorage.getItem("plumely:human-verified") === "1") {
+          setVerifiedHuman(true);
+        }
+      } catch {
+        // ignore (private mode, etc.)
+      }
+    }
+    setHydrated(true);
+
+    // Auto sign-in anonymously so the existing API/RLS flow keeps working.
+    // Requires Anonymous Sign-Ins to be enabled in the Supabase project.
+    (async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        await supabase.auth.signInAnonymously();
+      }
+    })();
+  }, [supabase]);
 
   useEffect(() => {
     if (!openTemplate) return;
@@ -201,6 +230,7 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
       fd.append("room", room);
       fd.append("light", light);
       fd.append("meta", JSON.stringify(meta));
+      if (userPrompt.trim()) fd.append("userPrompt", userPrompt.trim());
 
       const res = await fetch("/api/generate", { method: "POST", body: fd });
       if (!res.ok) {
@@ -301,6 +331,8 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
           resultUrl={resultUrl}
           generationId={generationId}
           resultRef={resultRef}
+          userPrompt={userPrompt}
+          setUserPrompt={setUserPrompt}
         />
 
         <TemplatesStrip onPick={setOpenTemplate} />
@@ -330,6 +362,19 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
           onSelect={(path: string) =>
             selectGalleryPhoto(path, openTemplate.label)
           }
+        />
+      )}
+
+      {hydrated && !verifiedHuman && (
+        <HumanGate
+          onVerified={() => {
+            setVerifiedHuman(true);
+            try {
+              window.sessionStorage.setItem("plumely:human-verified", "1");
+            } catch {
+              // ignore
+            }
+          }}
         />
       )}
     </div>
@@ -678,6 +723,8 @@ function Studio({
   resultUrl,
   generationId,
   resultRef,
+  userPrompt,
+  setUserPrompt,
 }: {
   light: File | null;
   room: File | null;
@@ -695,6 +742,8 @@ function Studio({
   resultUrl: string | null;
   generationId: string | null;
   resultRef: React.RefObject<HTMLDivElement | null>;
+  userPrompt: string;
+  setUserPrompt: (v: string) => void;
 }) {
   const disabled = busy || !ready;
   const [chipPulse, setChipPulse] = useState<{ v: LightType; n: number } | null>(null);
@@ -813,6 +862,30 @@ function Studio({
               );
             })}
           </div>
+        </div>
+
+        {/* Optional user prompt — guides the Gemini render */}
+        <div className="mt-7">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[12.5px] font-medium tracking-tight text-ink">
+              Add a note
+            </p>
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-soft">
+              Optional
+            </p>
+          </div>
+          <textarea
+            value={userPrompt}
+            onChange={(e) => setUserPrompt(e.target.value)}
+            placeholder="e.g. warm cozy lighting, dimmer, brighter, golden hour mood"
+            rows={2}
+            maxLength={400}
+            className="mt-2 w-full resize-none rounded-xl px-3.5 py-2.5 text-[13px] leading-[1.5] text-ink outline-none transition placeholder:text-ink-soft focus:border-[rgba(59,130,246,0.55)]"
+            style={{
+              background: "rgba(255, 255, 255, 0.65)",
+              border: "1px solid rgba(14, 12, 8, 0.12)",
+            }}
+          />
         </div>
 
         {error && (
@@ -956,12 +1029,15 @@ function Studio({
               </div>
             </div>
 
-            {resultUrl && (
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <p className="font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-soft">
-                  Photoreal · Plumely
-                </p>
-                <DownloadButton url={resultUrl} />
+            {resultUrl && generationId && (
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-soft">
+                    Photoreal · Plumely
+                  </p>
+                  <DownloadButton url={resultUrl} />
+                </div>
+                <EmailDesignForm generationId={generationId} />
               </div>
             )}
           </div>
@@ -1026,6 +1102,113 @@ function DownloadButton({ url }: { url: string }) {
         {busy ? "Saving…" : "Download"}
       </span>
     </button>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* EmailDesignForm — collects an email address, POSTs the render to it.       */
+/* Backend is /api/email-design (Resend). Requires RESEND_API_KEY +           */
+/* RESEND_FROM_EMAIL on the server, otherwise the route returns 503.          */
+
+function EmailDesignForm({ generationId }: { generationId: string }) {
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (status === "sending") return;
+    setStatus("sending");
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/email-design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generationId, email: email.trim() }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? `Request failed (${res.status})`);
+      }
+      setStatus("sent");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : "Couldn't send email.");
+    }
+  }
+
+  if (status === "sent") {
+    return (
+      <p
+        className="rounded-xl px-3.5 py-2.5 text-[12.5px] leading-[1.5]"
+        style={{
+          background: "rgba(96, 165, 250, 0.10)",
+          border: "1px solid rgba(59, 130, 246, 0.30)",
+          color: BLUE_DEEP,
+        }}
+      >
+        Sent — check your inbox in a minute or two.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <label className="block">
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-soft">
+          Email me this design
+        </span>
+        <div className="mt-1.5 flex gap-2">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="h-10 flex-1 rounded-full px-4 text-[13px] text-ink outline-none transition placeholder:text-ink-soft focus:border-[rgba(59,130,246,0.55)]"
+            style={{
+              background: "rgba(255, 255, 255, 0.65)",
+              border: "1px solid rgba(14, 12, 8, 0.12)",
+            }}
+            autoComplete="email"
+            disabled={status === "sending"}
+          />
+          <button
+            type="submit"
+            disabled={status === "sending"}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-[12.5px] font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              background: BLUE_DARK,
+              boxShadow: `0 6px 18px -6px ${BLUE_DARK}80`,
+            }}
+          >
+            {status === "sending" ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Sending
+              </>
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                Send
+              </>
+            )}
+          </button>
+        </div>
+      </label>
+      {errorMsg && (
+        <p
+          className="rounded-lg px-3 py-2 text-[12px]"
+          style={{
+            background: "rgba(96, 165, 250, 0.10)",
+            border: "1px solid rgba(59, 130, 246, 0.30)",
+            color: BLUE_DEEP,
+          }}
+        >
+          {errorMsg}
+        </p>
+      )}
+    </form>
   );
 }
 
@@ -1323,6 +1506,78 @@ function MobileStickyCTA({
               </>
             )}
           </span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* HumanGate — blocks the studio behind a single "I am a human" checkbox.    */
+/* Not real bot protection (Cloudflare Turnstile would be the upgrade).      */
+
+function HumanGate({ onVerified }: { onVerified: () => void }) {
+  const [checked, setChecked] = useState(false);
+
+  function handleContinue() {
+    if (!checked) return;
+    onVerified();
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[rgba(14,12,8,0.55)] backdrop-blur-md"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="human-gate-title"
+        className="glass-light relative z-10 w-full max-w-md overflow-hidden rounded-[20px] p-6 text-center sm:rounded-[24px] sm:p-8"
+      >
+        <p
+          className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em]"
+          style={{ color: BLUE_DARK }}
+        >
+          Quick check
+        </p>
+        <h2
+          id="human-gate-title"
+          className="mt-2 text-[22px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink sm:text-[24px]"
+        >
+          Before we let you in
+        </h2>
+        <p className="mt-1.5 text-[13px] leading-[1.5] text-ink-muted">
+          Just confirming you&apos;re a real person — helps us keep the
+          renderer fast for everyone.
+        </p>
+
+        <label className="mt-6 flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(14,12,8,0.14)] bg-white p-3.5 text-left transition hover:border-[rgba(14,12,8,0.28)]">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={(e) => setChecked(e.target.checked)}
+            className="h-5 w-5 cursor-pointer accent-[#1e40af]"
+          />
+          <span className="text-[14px] font-medium text-ink">
+            I am a human
+          </span>
+        </label>
+
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!checked}
+          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold tracking-tight text-white transition-colors disabled:cursor-not-allowed"
+          style={{
+            background: checked ? BLUE_DARK : "rgba(14,12,8,0.12)",
+            color: checked ? "#ffffff" : "rgba(14,12,8,0.40)",
+            boxShadow: checked ? `0 8px 22px -8px ${BLUE_DARK}80` : "none",
+          }}
+        >
+          Continue
+          <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </div>
     </div>

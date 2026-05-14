@@ -245,6 +245,8 @@ export type GeneratePayload = {
   lightPath: string;
   /** User-declared fixture category. Takes precedence over inference. */
   lightType?: LightType;
+  /** Optional free-text guidance from the customer (mood, brightness, etc.). */
+  userPrompt?: string;
 };
 
 /**
@@ -586,14 +588,23 @@ export const generateVisualization = task({
   id: "generate-visualization",
   maxDuration: 240,
   run: async (payload: GeneratePayload) => {
-    const { generationId, userId, roomPath, lightPath, lightType } = payload;
+    const { generationId, userId, roomPath, lightPath, lightType, userPrompt } = payload;
     const supabase = createSupabaseAdminClient();
 
     // If the user declared a light type, prepend an authoritative hint so the
     // model treats that category as canonical and mounts the fixture accordingly.
-    const finalPrompt = lightType
+    const placementHint = lightType
       ? `${LIGHT_TYPE_HINT[lightType]}\n\n${MASTER_PROMPT}`
       : MASTER_PROMPT;
+
+    // Optional customer-provided guidance — appended as a separate "USER GUIDANCE"
+    // section. It nudges mood/style but cannot override the absolute placement,
+    // identity, and "exactly one fixture" rules already baked into the main prompt.
+    const userGuidance = userPrompt
+      ? `\n\n═══════════════════════════════════════════════════════════\nUSER GUIDANCE (customer note)\n═══════════════════════════════════════════════════════════\nThe customer added the following note. Honor it for mood / brightness / atmosphere where it does not conflict with the placement, fixture-identity, single-fixture, or scene-preservation rules above. If it conflicts with any of those rules, the rules above WIN.\n\nCustomer note: "${userPrompt.replace(/"/g, '\\"')}"\n`
+      : "";
+
+    const finalPrompt = placementHint + userGuidance;
 
     logger.log("Starting generation", {
       generationId,

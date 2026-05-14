@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
   const room = form.get("room");
   const light = form.get("light");
   const metaRaw = form.get("meta");
+  const userPromptRaw = form.get("userPrompt");
+  const userPrompt =
+    typeof userPromptRaw === "string"
+      ? userPromptRaw.trim().slice(0, 400)
+      : undefined;
 
   if (!(room instanceof File) || !(light instanceof File)) {
     return NextResponse.json(
@@ -159,6 +164,7 @@ export async function POST(request: NextRequest) {
       roomPath,
       lightPath,
       lightType,
+      userPrompt,
     });
     await supabase
       .from("generations")
