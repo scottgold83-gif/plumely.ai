@@ -1,78 +1,74 @@
 @import "tailwindcss";
 
 @theme {
-  /* ───── Type ───── */
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), "Fraunces", ui-serif, Georgia, serif;
-  --font-mono: var(--font-mono), ui-monospace, "JetBrains Mono", monospace;
+  --font-sans: var(--font-sans-manrope), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: var(--font-display-fraunces), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-mono-jb), ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
 
-  /* ───── Editorial light palette ───── */
-
-  /* Paper — slightly warm off-white, not sterile */
-  --color-paper: #fbfaf7;
-  --color-paper-2: #f6f4ee;
-
-  /* Background defaults to paper */
+  /* ─── Paper page ─── */
+  --color-paper: #fbfaf6;
+  --color-paper-2: #f2f0e8;
   --color-background: var(--color-paper);
 
-  /* Ink — warm near-black */
+  /* Warm ink on paper */
   --color-ink: #0e0c08;
   --color-ink-muted: #4a4636;
   --color-ink-soft: #7a7568;
 
-  /* Hairlines */
-  --color-rule: rgba(14, 12, 8, 0.10);
-  --color-rule-strong: rgba(14, 12, 8, 0.22);
+  /* Hairlines on paper */
+  --color-rule: rgba(14, 12, 8, 0.08);
+  --color-rule-strong: rgba(14, 12, 8, 0.18);
 
-  /* Brand — dominant purple, supporting amber */
-  --color-brand-purple: #6d28d9;
-  --color-brand-purple-bright: #7c3aed;
-  --color-brand-purple-soft: #ede9fe;
-  --color-brand-purple-glow: rgba(124, 58, 237, 0.18);
+  /* Blue accent */
+  --color-blue-deep: #1d4ed8;
+  --color-blue: #3b82f6;
+  --color-blue-bright: #60a5fa;
+  --color-blue-soft: rgba(59, 130, 246, 0.14);
+  --color-blue-glow: rgba(37, 99, 235, 0.45);
 
-  --color-brand-orange: #f59e0b;
-  --color-brand-orange-bright: #fbbf24;
+  /* Yellow accent — corner washes only */
+  --color-yellow: #fbbf24;
+  --color-yellow-bright: #fcd34d;
+  --color-yellow-soft: rgba(253, 224, 71, 0.22);
 
-  --color-amber: #f59e0b;
-  --color-amber-bright: #fbbf24;
-  --color-amber-soft: #fef3c7;
-  --color-amber-glow: rgba(245, 158, 11, 0.32);
+  /* Legacy aliases */
+  --color-brand-purple: var(--color-blue-deep);
+  --color-brand-purple-bright: var(--color-blue);
+  --color-brand-purple-soft: var(--color-blue-soft);
+  --color-brand-purple-glow: var(--color-blue-glow);
+  --color-amber: var(--color-yellow);
+  --color-amber-bright: var(--color-yellow-bright);
+  --color-amber-soft: var(--color-yellow-soft);
 
-  /* Surface tokens kept for cards/sections in non-landing pages */
-  --color-surface: #f6f4ee;
-  --color-surface-low: #fbfaf7;
-  --color-outline: rgba(14, 12, 8, 0.10);
-  --color-outline-strong: rgba(14, 12, 8, 0.22);
+  --color-surface: var(--color-paper-2);
+  --color-surface-low: var(--color-paper);
+  --color-outline: var(--color-rule);
+  --color-outline-strong: var(--color-rule-strong);
 
-  /* Legacy primary kept for non-landing routes (login, app) */
-  --color-primary: #003ec7;
-  --color-primary-bright: #0052ff;
+  --color-primary: var(--color-blue-deep);
+  --color-primary-bright: var(--color-blue);
   --color-on-primary: #ffffff;
-  --color-primary-soft: #dde1ff;
+  --color-primary-soft: var(--color-blue-soft);
 
-  /* Multi-layer shadows */
   --shadow-soft:
     0 1px 2px rgba(14, 12, 8, 0.04),
     0 8px 24px rgba(14, 12, 8, 0.06),
-    0 24px 60px -16px rgba(14, 12, 8, 0.08);
-  --shadow-raised:
-    0 2px 6px rgba(14, 12, 8, 0.06),
-    0 16px 40px rgba(14, 12, 8, 0.10),
-    0 48px 120px -24px rgba(14, 12, 8, 0.16);
-  --shadow-glow-purple: 0 12px 60px -10px rgba(124, 58, 237, 0.30);
-  --shadow-glow-amber: 0 12px 60px -10px rgba(245, 158, 11, 0.28);
+    0 22px 60px -18px rgba(37, 99, 235, 0.16);
+  --shadow-card:
+    0 1px 2px rgba(14, 12, 8, 0.04),
+    0 12px 32px -10px rgba(14, 12, 8, 0.08),
+    0 40px 100px -32px rgba(37, 99, 235, 0.28);
+  --shadow-glow-blue: 0 12px 60px -10px rgba(37, 99, 235, 0.40);
 
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
-  --radius-2xl: 2rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.5rem;
 }
-
-/* ───────────────────────────────────────── */
-/* Base */
 
 html {
   background: var(--color-paper);
+  color-scheme: light;
 }
 html,
 body {
@@ -86,299 +82,431 @@ body {
   background: var(--color-paper);
 }
 
-/* Focus state — purple ring on light */
 :where(button, a, input, textarea, select):focus-visible {
-  outline: 2px solid var(--color-brand-purple-bright);
+  outline: 1.5px solid var(--color-blue);
   outline-offset: 3px;
   border-radius: 4px;
 }
 
-/* Selection — purple */
 ::selection {
-  background: var(--color-brand-purple-bright);
-  color: #fff;
+  background: var(--color-blue);
+  color: #ffffff;
 }
 
-/* ───────────────────────────────────────── */
-/* Editorial type utilities */
+/* ─── Typography ─── */
+.font-display { font-family: var(--font-display); font-optical-sizing: auto; }
+.font-mono    { font-family: var(--font-mono); }
 
-.font-display {
+/* Editorial italic — Fraunces SOFT */
+.serif-italic {
   font-family: var(--font-display);
+  font-style: italic;
   font-feature-settings: "ss01", "ss02";
-  font-optical-sizing: auto;
-}
-.font-mono {
-  font-family: var(--font-mono);
-}
-.font-instrument {
-  font-family: var(--font-instrument), ui-serif, Georgia, serif;
-}
-.font-playfair {
-  font-family: var(--font-playfair), ui-serif, Georgia, serif;
+  font-variation-settings: "opsz" 144, "SOFT" 100;
 }
 
-.h-display {
-  font-family: var(--font-display);
-  font-feature-settings: "ss01", "ss02";
-  font-optical-sizing: auto;
-  letter-spacing: -0.025em;
-  font-weight: 700;
-  line-height: 0.95;
-  color: var(--color-ink);
-}
-
-/* Editorial section label — small mono uppercase */
-.label-eyebrow {
+.eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--color-ink-soft);
 }
-.label-eyebrow-accent {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--color-brand-purple);
+
+/* ─── Light glass — see-through bubble ─── */
+.glass-light {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.70) 0%, rgba(255, 255, 255, 0.35) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 1px 2px rgba(14, 12, 8, 0.04),
+    0 14px 36px -12px rgba(14, 12, 8, 0.08),
+    0 36px 90px -28px rgba(37, 99, 235, 0.25);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
 }
 
-/* Italic editorial caption */
-.caption {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: var(--color-ink-muted);
-  letter-spacing: 0.005em;
-}
-
-/* ───────────────────────────────────────── */
-/* Atmosphere — paper grain (very subtle on white) */
-
-.bg-grain {
+/* ─── Water-drop bubble — the studio "case" ─── */
+/*
+   3D droplet physics, stacked:
+     · broad bright specular crescent at the top (overhead-light reflection)
+     · sharp high-gloss glint upper-left (the "diamond" point)
+     · second curved highlight band — the bubble-curvature tell
+     · soft cyan/blue tints in opposite corners (refracted light, very subtle)
+     · slight darkening at the bottom edge (the inside curve of the droplet)
+   Heavy backdrop-blur + saturation = real refractive transparency.
+*/
+.glass-studio {
   position: relative;
+  background:
+    /* Pinpoint glint — the tiny intense bright spot you see on real glass */
+    radial-gradient(14% 7% at 34% 5%, rgba(255, 255, 255, 0.92) 0%, transparent 78%),
+    /* Subtle blue corner — top-right (dimmer) */
+    radial-gradient(95% 70% at 100% 0%, rgba(96, 165, 250, 0.085) 0%, transparent 60%),
+    /* Subtle blue corner — bottom-right (dimmer) */
+    radial-gradient(115% 85% at 100% 100%, rgba(59, 130, 246, 0.07) 0%, transparent 65%),
+    /* Pale blue whisper — bottom-left (dimmer) */
+    radial-gradient(80% 60% at 18% 100%, rgba(147, 197, 253, 0.055) 0%, transparent 65%),
+    /* Top-rim specular — bright wide crescent */
+    radial-gradient(75% 35% at 45% -12%, rgba(255, 255, 255, 0.78) 0%, transparent 70%),
+    /* Upper-left high-gloss glint */
+    radial-gradient(50% 35% at 22% 8%, rgba(255, 255, 255, 0.60) 0%, transparent 60%),
+    /* Dim blue wash across the top of the bubble */
+    radial-gradient(95% 38% at 50% 0%, rgba(59, 130, 246, 0.14) 0%, transparent 72%),
+    /* Body — near-transparent neutral with cool undertone */
+    linear-gradient(180deg, rgba(225, 230, 240, 0.30) 0%, rgba(200, 210, 225, 0.16) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 1),
+    inset 0 -2px 0 rgba(120, 135, 165, 0.22),
+    inset 2px 0 0 rgba(255, 255, 255, 0.72),
+    inset -1.5px 0 0 rgba(120, 135, 165, 0.14),
+    0 1px 2px rgba(14, 12, 8, 0.05),
+    0 26px 62px -12px rgba(14, 12, 8, 0.14),
+    0 78px 160px -34px rgba(59, 130, 246, 0.26);
+  backdrop-filter: blur(54px) saturate(195%) brightness(1.10);
+  -webkit-backdrop-filter: blur(54px) saturate(195%) brightness(1.10);
 }
+/* Primary "shine" — broad bright wash hugging the top rim */
+.glass-studio::before {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  top: 0;
+  height: 46%;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(78% 100% at 32% 0%, rgba(255, 255, 255, 0.62) 0%, transparent 60%);
+  mix-blend-mode: screen;
+  z-index: -1;
+  opacity: 1;
+}
+/* Secondary glint — small bright crescent below the top rim (water-drop curvature) */
+.glass-studio::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 38%;
+  top: 9%;
+  height: 14%;
+  pointer-events: none;
+  border-radius: 999px;
+  background:
+    radial-gradient(55% 100% at 40% 50%, rgba(255, 255, 255, 0.50) 0%, transparent 75%);
+  mix-blend-mode: screen;
+  filter: blur(7px);
+  z-index: -1;
+}
+
+/* ─── Typewriter caret blink ─── */
+@keyframes caretBlink {
+  0%, 50%   { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+.caret-blink {
+  animation: caretBlink 0.7s steps(1) infinite;
+}
+
+/* ─── Flowing gradient text — for the Sample rooms heading ─── */
+@keyframes gradientFlow {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+.gradient-flow {
+  background:
+    linear-gradient(90deg, #1e40af 0%, #3b82f6 25%, #93c5fd 50%, #3b82f6 75%, #1e40af 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: gradientFlow 5s linear infinite;
+}
+/* Soft underline that pulses with the text */
+@keyframes underlineGlow {
+  0%, 100% { opacity: 0.35; transform: scaleX(0.85); }
+  50%      { opacity: 0.85; transform: scaleX(1); }
+}
+.underline-glow {
+  transform-origin: left center;
+  animation: underlineGlow 5s ease-in-out infinite;
+}
+
+/* ─── Chip scan — light band sweeps left-to-right once on click ─── */
+@keyframes chipScan {
+  0%   { transform: translateX(-110%); opacity: 0; }
+  14%  { opacity: 1; }
+  86%  { opacity: 1; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+.chip-scan {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  /* Pre-animation resting state — invisible & parked off-screen so nothing peeks before the run. */
+  opacity: 0;
+  transform: translateX(-110%);
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(96, 165, 250, 0.35) 38%,
+      rgba(255, 255, 255, 0.70) 50%,
+      rgba(96, 165, 250, 0.35) 62%,
+      transparent 100%
+    );
+  mix-blend-mode: screen;
+  animation: chipScan 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ─── Tile scan — very subtle slow light sweep across upload boxes ─── */
+/* Sweeps 0%→40% of cycle, then parks off-screen for the remainder. */
+@keyframes tileScan {
+  0%   { transform: translateX(-110%); opacity: 0; }
+  6%   { opacity: 1; }
+  40%  { transform: translateX(110%); opacity: 1; }
+  41%  { opacity: 0; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+.tile-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      100deg,
+      transparent 0%,
+      rgba(96, 165, 250, 0.05) 38%,
+      rgba(96, 165, 250, 0.12) 50%,
+      rgba(96, 165, 250, 0.05) 62%,
+      transparent 100%
+    );
+  animation: tileScan 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.tile-scan-1 { animation-delay: 0s; }
+.tile-scan-2 { animation-delay: 4s; }
+
+/* ─── Generate button fade-scan — slow periodic sweep with a quiet tail ─── */
+@keyframes btnFadeScan {
+  0%   { transform: translateX(-110%); opacity: 0; }
+  6%   { opacity: 0.95; }
+  26%  { opacity: 0.95; transform: translateX(110%); }
+  27%  { opacity: 0; }
+  100% { opacity: 0; transform: translateX(110%); }
+}
+.btn-scan-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.18) 40%,
+      rgba(255, 255, 255, 0.45) 50%,
+      rgba(255, 255, 255, 0.18) 60%,
+      transparent 100%
+    );
+  animation: btnFadeScan 5.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 1.2s;
+}
+
+/* ─── Tap to use — text pulse + chevron bob ─── */
+@keyframes tapPulse {
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1; }
+}
+.tap-pulse { animation: tapPulse 2.2s ease-in-out infinite; }
+
+@keyframes tapBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(3px); }
+}
+.tap-bob { animation: tapBob 1.6s ease-in-out infinite; }
+
+/* ─── Tagline highlight shimmer — sweeps a blue band across the text ─── */
+@keyframes shimmerSweep {
+  0%   { background-position: 200% 50%; }
+  100% { background-position: -200% 50%; }
+}
+.shimmer-blue {
+  background:
+    linear-gradient(
+      100deg,
+      var(--color-ink-muted) 0%,
+      var(--color-ink-muted) 38%,
+      #2563eb 50%,
+      var(--color-ink-muted) 62%,
+      var(--color-ink-muted) 100%
+    );
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmerSweep 6s ease-in-out infinite;
+}
+.glass-light-soft {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.20) 100%);
+  border: 1px dashed rgba(14, 12, 8, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 1px 2px rgba(14, 12, 8, 0.03),
+    0 6px 18px -8px rgba(14, 12, 8, 0.05);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+}
+
+/* Hairline divider */
+.rule {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(14, 12, 8, 0.18) 30%,
+    rgba(14, 12, 8, 0.18) 70%,
+    transparent 100%
+  );
+}
+
+/* ─── Page-load motion ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+@keyframes panelRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.panel-rise { animation: panelRise 0.8s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+
+@keyframes orbDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(2%, -1.5%) scale(1.04); }
+  66%      { transform: translate(-1.5%, 1%) scale(0.97); }
+}
+.orb-drift      { animation: orbDrift 24s ease-in-out infinite; will-change: transform; }
+.orb-drift-slow { animation: orbDrift 32s ease-in-out infinite reverse; will-change: transform; }
+
+/* ─── Cascade — Fixture → Room → Result, GPU-accelerated (opacity only) ─── */
+/* The pill stays static; an absolutely-positioned overlay fades in/out via
+   opacity. The browser compositor handles opacity without paint, so the
+   animation is smooth even on three pills running simultaneously. */
+@keyframes pillCascadeFade {
+  0%, 70%, 100% { opacity: 0; }
+  20%, 32%      { opacity: 1; }
+}
+.cascade-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  will-change: opacity;
+  background:
+    linear-gradient(180deg, rgba(96, 165, 250, 0.22) 0%, rgba(255, 255, 255, 0.55) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(30, 64, 175, 0.55),
+    0 10px 28px -6px rgba(30, 64, 175, 0.55);
+}
+.cascade-overlay-1 { animation: pillCascadeFade 3.6s cubic-bezier(0.22, 1, 0.36, 1) 0s infinite both; }
+.cascade-overlay-2 { animation: pillCascadeFade 3.6s cubic-bezier(0.22, 1, 0.36, 1) 1.2s infinite both; }
+.cascade-overlay-3 { animation: pillCascadeFade 3.6s cubic-bezier(0.22, 1, 0.36, 1) 2.4s infinite both; }
+
+/* Dot — also opacity-only via a colored overlay span behind the text */
+.cascade-dot-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  will-change: opacity;
+  background: #1e40af;
+}
+.cascade-dot-overlay-1 { animation: pillCascadeFade 3.6s cubic-bezier(0.22, 1, 0.36, 1) 0s infinite both; }
+.cascade-dot-overlay-2 { animation: pillCascadeFade 3.6s cubic-bezier(0.22, 1, 0.36, 1) 1.2s infinite both; }
+.cascade-dot-overlay-3 { animation: pillCascadeFade 3.6s cubic-bezier(0.22, 1, 0.36, 1) 2.4s infinite both; }
+
+@keyframes cascadeWire {
+  0%, 14%   { transform: translateX(-100%); opacity: 0; }
+  18%       { opacity: 1; }
+  30%       { transform: translateX(100%); opacity: 1; }
+  34%, 100% { opacity: 0; }
+}
+.cascade-wire-1 { animation: cascadeWire 3.6s cubic-bezier(0.22, 1, 0.36, 1) 0.84s infinite both; }
+.cascade-wire-2 { animation: cascadeWire 3.6s cubic-bezier(0.22, 1, 0.36, 1) 2.04s infinite both; }
+
+/* Bubble breathe — solid tile gets a soft blue glow on cycle */
+@keyframes bubbleBreathe {
+  0%, 70%, 100% {
+    box-shadow:
+      0 1px 2px rgba(14, 12, 8, 0.03),
+      0 6px 14px -8px rgba(14, 12, 8, 0.06),
+      0 0 0 0 rgba(59, 130, 246, 0);
+  }
+  20%, 32% {
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.22),
+      0 18px 40px -16px rgba(37, 99, 235, 0.42);
+  }
+}
+.bubble-breathe-1 { animation: bubbleBreathe 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: 0.2s; }
+.bubble-breathe-2 { animation: bubbleBreathe 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: 1.4s; }
+.bubble-breathe-3 { animation: bubbleBreathe 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: 2.6s; }
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.92); }
+}
+.status-pulse { animation: statusPulse 1.8s ease-in-out infinite; }
+
+/* Type-chip activation — smooth cross-fade on click */
+.chip-fade {
+  transition-property: background, border-color, color, box-shadow, transform;
+  transition-duration: 380ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .panel-rise,
+  .orb-drift, .orb-drift-slow,
+  .status-pulse,
+  .cascade-overlay-1, .cascade-overlay-2, .cascade-overlay-3,
+  .cascade-dot-overlay-1, .cascade-dot-overlay-2, .cascade-dot-overlay-3,
+  .cascade-wire-1, .cascade-wire-2,
+  .bubble-breathe-1, .bubble-breathe-2, .bubble-breathe-3,
+  .caret-blink,
+  .gradient-flow,
+  .underline-glow,
+  .chip-scan,
+  .btn-scan-overlay,
+  .tile-scan,
+  .tile-scan-1,
+  .tile-scan-2,
+  .tap-pulse,
+  .tap-bob,
+  .shimmer-blue {
+    animation: none !important;
+  }
+  .chip-fade { transition: none !important; }
+}
+
+/* Paper grain — tiny, human */
 .bg-grain::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  opacity: 0.05;
+  opacity: 0.04;
   mix-blend-mode: multiply;
   z-index: 1;
-}
-
-/* ───────────────────────────────────────── */
-/* Page-load editorial reveal — staggered cascade */
-
-@keyframes editorialFade {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.editorial-fade {
-  animation: editorialFade 1.1s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes pendantDrop {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-.pendant-drop {
-  animation: pendantDrop 1.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes lightOn {
-  0% { opacity: 0; }
-  50% { opacity: 0; }
-  78% { opacity: 0.5; }
-  100% { opacity: 1; }
-}
-.light-turns-on {
-  animation: lightOn 2.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes glowPulse {
-  0%, 100% {
-    opacity: 0.85;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.06);
-  }
-}
-.animate-glow {
-  animation: glowPulse 6s ease-in-out infinite;
-}
-
-/* Pendant gentle sway — pendulum motion after the drop completes */
-@keyframes pendantSway {
-  0%, 100% { transform: rotate(-1deg); }
-  50% { transform: rotate(1deg); }
-}
-.pendant-sway {
-  transform-origin: top center;
-  animation: pendantSway 8s ease-in-out 1.4s infinite;
-  will-change: transform;
-}
-
-/* ───── Luxury pendant — cinematic choreography ─────
-   Drop in → flash → stabilize → cast shadows resolve → continuous slow sway.
-   Sine-eased pendulum physics. Bright bulb against cool shadow vignette. */
-
-/* Drop — pendant falls from above with a quick settle */
-@keyframes luxuryDrop {
-  0%   { transform: translateY(-110%); opacity: 0; }
-  60%  { transform: translateY(0); opacity: 1; }
-  74%  { transform: translateY(-5px); }
-  88%  { transform: translateY(2px); }
-  100% { transform: translateY(0); }
-}
-.luxury-drop {
-  animation: luxuryDrop 0.9s cubic-bezier(0.34, 1.32, 0.64, 1) 0.1s backwards;
-}
-
-/* Damped pendulum sway — swings ~2s after the drop, then settles to rest */
-@keyframes luxurySway {
-  0%   { transform: rotate(0deg); }
-  12%  { transform: rotate(3deg); }
-  28%  { transform: rotate(-2.4deg); }
-  46%  { transform: rotate(1.7deg); }
-  64%  { transform: rotate(-1deg); }
-  82%  { transform: rotate(0.4deg); }
-  100% { transform: rotate(0deg); }
-}
-.luxury-sway {
-  transform-origin: top center;
-  animation: luxurySway 2s cubic-bezier(0.45, 0, 0.55, 1) 0.85s 1 forwards;
-  will-change: transform;
-}
-
-/* Bulb switch-on — quick two-phase ramp */
-@keyframes bulbSwitchOn {
-  0%   { opacity: 0; }
-  30%  { opacity: 0.45; }
-  100% { opacity: 1; }
-}
-.bulb-switch-on {
-  animation: bulbSwitchOn 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.6s backwards;
-}
-
-/* Cone of light cascades down */
-@keyframes coneCascade {
-  0%   { opacity: 0; transform: translateY(-8px) scaleY(0.7); transform-origin: top center; }
-  100% { opacity: 1; transform: translateY(0) scaleY(1); transform-origin: top center; }
-}
-.cone-cascade {
-  animation: coneCascade 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.7s backwards;
-}
-
-/* Stage vignette */
-@keyframes stageReveal {
-  0%   { opacity: 0; }
-  100% { opacity: 1; }
-}
-.stage-reveal {
-  animation: stageReveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.3s backwards;
-}
-
-/* Respect reduced-motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  .pendant-drop,
-  .pendant-sway,
-  .light-turns-on,
-  .light-quick-on,
-  .editorial-fade,
-  .animate-glow,
-  .luxury-drop,
-  .luxury-sway,
-  .bulb-switch-on,
-  .cone-cascade,
-  .stage-reveal {
-    animation: none !important;
-  }
-}
-
-/* ───────────────────────────────────────── */
-/* CTA — solid ink button with purple glow + sweep on hover */
-
-.btn-primary {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background: var(--color-ink);
-  color: var(--color-paper);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  letter-spacing: 0.005em;
-  transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1),
-    background 250ms ease,
-    box-shadow 250ms ease;
-  box-shadow: var(--shadow-glow-purple), var(--shadow-soft);
-}
-.btn-primary::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    120deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.20) 50%,
-    transparent 65%
-  );
-  transform: translateX(-100%);
-  transition: transform 700ms ease;
-  z-index: 1;
-  pointer-events: none;
-}
-.btn-primary:hover::before {
-  transform: translateX(100%);
-}
-.btn-primary:hover {
-  background: var(--color-brand-purple);
-}
-.btn-primary > * {
-  position: relative;
-  z-index: 2;
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  font-weight: 500;
-  border: 1px solid var(--color-rule-strong);
-  transition: border-color 250ms ease, color 250ms ease,
-    background 250ms ease;
-}
-.btn-ghost:hover {
-  border-color: var(--color-brand-purple);
-  color: var(--color-brand-purple);
-}
-
-/* Drop-cap — purple */
-.dropcap::first-letter {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 4.5em;
-  line-height: 0.85;
-  float: left;
-  margin: 0.05em 0.08em -0.05em 0;
-  color: var(--color-brand-purple-bright);
 }

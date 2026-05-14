@@ -1,22 +1,22 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
-  Camera,
+  ArrowUpRight,
   Check,
+  ChevronDown,
   Download,
-  Lamp,
   LampCeiling,
   LampWallUp,
   Lightbulb,
   Loader2,
   LogOut,
+  Plus,
   RefreshCcw,
   Sparkles,
-  Upload,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -49,43 +49,13 @@ type LightMeta = {
 const LIGHT_TYPES: {
   value: Exclude<LightType, "">;
   label: string;
-  description: string;
   Icon: LucideIcon;
 }[] = [
-  {
-    value: "ceiling",
-    label: "Ceiling",
-    description: "Flush mount",
-    Icon: LampCeiling,
-  },
-  {
-    value: "wall",
-    label: "Wall",
-    description: "Sconce",
-    Icon: LampWallUp,
-  },
-  {
-    value: "hanging",
-    label: "Hanging",
-    description: "Pendant on cord",
-    Icon: Lightbulb,
-  },
-  {
-    value: "chandelier",
-    label: "Chandelier",
-    description: "Statement piece",
-    Icon: Sparkles,
-  },
-  {
-    value: "outdoor",
-    label: "Outdoor",
-    description: "Porch or garden",
-    Icon: Lamp,
-  },
+  { value: "ceiling", label: "Ceiling", Icon: LampCeiling },
+  { value: "wall", label: "Wall", Icon: LampWallUp },
+  { value: "hanging", label: "Pendant", Icon: Lightbulb },
+  { value: "chandelier", label: "Chandelier", Icon: Sparkles },
 ];
-
-const BRAND_GRADIENT = "linear-gradient(95deg, #7c3aed 0%, #d946ef 48%, #f59e0b 100%)";
-const HEADLINE_GRADIENT = "linear-gradient(90deg, #7B2CBF 0%, #FF7A00 100%)";
 
 type RoomTemplate = {
   id: string;
@@ -95,16 +65,12 @@ type RoomTemplate = {
   gallery: string[];
 };
 
-// Each template has 6 photo slots. Drop JPGs at the listed paths inside
-// /public to populate the gallery. Files that don't exist gracefully show a
-// "coming soon" placeholder card.
 const ROOM_TEMPLATES: RoomTemplate[] = [
   {
     id: "modern",
     label: "Modern",
-    description: "Modern house",
-    swatch:
-      "linear-gradient(135deg, #e8eaf0 0%, #c8cad2 55%, #8e909a 100%)",
+    description: "Clean, minimal interiors",
+    swatch: "linear-gradient(160deg, #ffffff 0%, #f6f8fb 100%)",
     gallery: [
       "/templates/modern/1.jpg",
       "/templates/modern/2.jpg",
@@ -117,9 +83,8 @@ const ROOM_TEMPLATES: RoomTemplate[] = [
   {
     id: "classic",
     label: "Classic",
-    description: "Classic house",
-    swatch:
-      "linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #c8964a 100%)",
+    description: "Warm, traditional rooms",
+    swatch: "linear-gradient(160deg, #ffffff 0%, #f6f8fb 100%)",
     gallery: [
       "/templates/classic/1.jpg",
       "/templates/classic/2.jpg",
@@ -132,9 +97,8 @@ const ROOM_TEMPLATES: RoomTemplate[] = [
   {
     id: "rustic",
     label: "Rustic",
-    description: "Rustic house",
-    swatch:
-      "linear-gradient(135deg, #fed7aa 0%, #d97706 55%, #5b3a1f 100%)",
+    description: "Natural, textured spaces",
+    swatch: "linear-gradient(160deg, #ffffff 0%, #f6f8fb 100%)",
     gallery: [
       "/templates/rustic/1.jpg",
       "/templates/rustic/2.jpg",
@@ -145,6 +109,13 @@ const ROOM_TEMPLATES: RoomTemplate[] = [
     ],
   },
 ];
+
+const BLUE = "#3b82f6";
+const BLUE_DEEP = "#1d4ed8";
+const BLUE_DARK = "#1e40af";
+const BLUE_BRIGHT = "#60a5fa";
+const BLUE_GRADIENT =
+  "linear-gradient(135deg, #1d4ed8 0%, #3b82f6 55%, #60a5fa 100%)";
 
 async function fetchPhotoAsFile(
   path: string,
@@ -163,13 +134,20 @@ async function fetchPhotoAsFile(
   }
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+
 export default function StudioClient({ userEmail }: { userEmail: string }) {
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
 
   const [room, setRoom] = useState<File | null>(null);
   const [light, setLight] = useState<File | null>(null);
-  const [meta, setMeta] = useState<LightMeta>({ name: "", brand: "", sku: "", type: "" });
+  const [meta, setMeta] = useState<LightMeta>({
+    name: "",
+    brand: "",
+    sku: "",
+    type: "",
+  });
   const [status, setStatus] = useState<GenerationStatus>("idle");
   const [generationId, setGenerationId] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -177,8 +155,8 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
   const [openTemplate, setOpenTemplate] = useState<RoomTemplate | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resultRef = useRef<HTMLDivElement | null>(null);
 
-  // Close gallery modal on Esc
   useEffect(() => {
     if (!openTemplate) return;
     const onEsc = (e: KeyboardEvent) => {
@@ -194,6 +172,15 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (resultUrl && resultRef.current) {
+      resultRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [resultUrl]);
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/");
@@ -202,10 +189,9 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
 
   async function handleSubmit() {
     if (!room || !light) {
-      setError("Upload both a room photo and a light fixture image.");
+      setError("Add both a fixture and a room photo.");
       return;
     }
-
     setError(null);
     setResultUrl(null);
     setStatus("uploading");
@@ -283,125 +269,59 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
 
   const busy =
     status === "uploading" || status === "queued" || status === "running";
-  const ready = !!light && !!room;
+  const ready = !!light && !!room && !!meta.type;
 
   return (
     <div
-      className="relative flex min-h-screen flex-col text-ink"
-      style={{
-        background: [
-          // Warm golden pendant bloom — upper center
-          "radial-gradient(48% 36% at 50% 4%, rgba(254, 200, 140, 0.42), transparent 72%)",
-          // Lavender orb — upper left
-          "radial-gradient(40% 32% at 16% 22%, rgba(196, 181, 253, 0.30), transparent 72%)",
-          // Peach orb — upper right
-          "radial-gradient(38% 30% at 84% 28%, rgba(252, 187, 165, 0.30), transparent 72%)",
-          // Blush purple — middle left
-          "radial-gradient(34% 28% at 10% 60%, rgba(221, 214, 254, 0.24), transparent 75%)",
-          // Soft pink — middle right
-          "radial-gradient(36% 30% at 94% 64%, rgba(252, 210, 198, 0.22), transparent 75%)",
-          // Lavender wash — bottom
-          "radial-gradient(42% 32% at 30% 94%, rgba(216, 207, 247, 0.20), transparent 75%)",
-          // Soft peach — bottom right
-          "radial-gradient(40% 30% at 80% 96%, rgba(254, 215, 195, 0.18), transparent 75%)",
-          // Cream base
-          "linear-gradient(180deg, #FAFAF7 0%, #F8F4EE 100%)",
-        ].join(", "),
-      }}
+      className="relative min-h-screen overflow-x-hidden text-ink"
+      style={{ background: "#fbfaf6" }}
     >
-      {/* Subtle film grain — adds tactile texture */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-0 opacity-[0.04]"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
-          mixBlendMode: "multiply",
-        }}
-      />
+      <Atmosphere />
+      <Header userEmail={userEmail} onSignOut={handleSignOut} />
 
-      <ProgressBar status={status} hasFiles={ready} />
-
-      <header className="relative z-20 border-b border-outline/30 bg-white/75 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <Link
-            href="/"
-            aria-label="Plumely home"
-            className="flex items-center gap-3 transition hover:opacity-90"
-          >
-            <Logo size={34} withWordmark={false} />
-            <span
-              className="text-[22px] font-bold tracking-[-0.01em]"
-              style={{
-                background: BRAND_GRADIENT,
-                WebkitBackgroundClip: "text",
-                backgroundClip: "text",
-                color: "transparent",
-              }}
-            >
-              Plumely
-            </span>
-          </Link>
-          <div className="flex items-center gap-3 text-[13px]">
-            <span className="hidden text-ink-muted sm:inline">{userEmail}</span>
-            <button
-              onClick={handleSignOut}
-              className="inline-flex items-center gap-1.5 rounded-full border border-outline/60 bg-white px-3 py-1.5 text-[12px] font-semibold text-ink transition hover:border-ink hover:bg-ink hover:text-white"
-            >
-              <LogOut className="h-3.5 w-3.5" /> Sign out
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="relative mx-auto w-full max-w-5xl flex-1 px-6 py-12 md:py-16">
+      <main className="relative z-10 mx-auto w-full max-w-[680px] px-4 pb-32 pt-6 sm:px-5 sm:pt-12 md:pt-16">
         <Hero />
 
-        <TemplateBlocks onPick={setOpenTemplate} />
+        <Pipeline light={!!light} room={!!room} done={!!resultUrl} busy={busy} />
 
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
-          <UploadCard
-            number="1"
-            label="Light fixture"
-            file={light}
-            onFile={setLight}
-            tone="accent"
-          />
-          <UploadCard
-            number="2"
-            label="Your room"
-            file={room}
-            onFile={setRoom}
-            tone="primary"
-          />
-        </div>
-
-        <LightTypeSelector
-          value={meta.type}
-          onChange={(t: LightType) =>
-            setMeta((m) => ({ ...m, type: t }))
-          }
-        />
-
-        <HowItWorks />
-
-
-        <GenerateAction
+        <Studio
+          light={light}
+          room={room}
+          meta={meta}
+          setLight={setLight}
+          setRoom={setRoom}
+          setMeta={setMeta}
+          onSubmit={handleSubmit}
+          onReset={reset}
           ready={ready}
           busy={busy}
           status={status}
           error={error}
           showReset={!!resultUrl || status === "failed"}
-          onSubmit={handleSubmit}
-          onReset={reset}
-        />
-
-        <ResultPanel
-          status={status}
           resultUrl={resultUrl}
           generationId={generationId}
+          resultRef={resultRef}
         />
+
+        <TemplatesStrip onPick={setOpenTemplate} />
+
+        <footer className="mt-20 flex items-center justify-center gap-2 font-mono text-[10px] uppercase tracking-[0.24em]">
+          <span
+            className="inline-block h-1 w-1 rounded-full"
+            style={{ background: BLUE_DARK, boxShadow: `0 0 6px ${BLUE_BRIGHT}` }}
+          />
+          <span className="gradient-flow font-semibold">
+            Plumely · made with care
+          </span>
+        </footer>
       </main>
+
+      <MobileStickyCTA
+        ready={ready}
+        busy={busy}
+        status={status}
+        onSubmit={handleSubmit}
+      />
 
       {openTemplate && (
         <GalleryModal
@@ -417,120 +337,993 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* Atmosphere — blue washes + soft yellow corners on warm paper.              */
 
-function Hero() {
+function Atmosphere() {
   return (
-    <section className="relative">
-      {/* Ambient purple-to-orange glow behind the headline */}
+    <>
+      {/* Soft blue fade at the very top — present, not loud */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -inset-x-12 -top-12 -z-10 h-[420px]"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[26vh]"
         style={{
           background:
-            "radial-gradient(50% 60% at 28% 30%, rgba(124,58,237,0.22), transparent 70%), radial-gradient(50% 60% at 72% 30%, rgba(245,158,11,0.20), transparent 70%), radial-gradient(40% 40% at 50% 20%, rgba(217,70,239,0.10), transparent 70%)",
+            "linear-gradient(180deg, rgba(96, 165, 250, 0.07) 0%, rgba(96, 165, 250, 0.02) 55%, transparent 100%)",
         }}
       />
 
-      {/* Eyebrow — darker than the previous faint version */}
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-ink">
-        Studio
-      </p>
-
-      {/* Gradient-fill headline */}
-      <h1
-        className="mt-3 pb-1 text-[2.5rem] font-extrabold leading-[1.15] tracking-[-0.025em] md:text-[3.25rem]"
+      {/* Soft blue wash — top (dimmed slightly) */}
+      <div
+        aria-hidden
+        className="orb-drift pointer-events-none absolute -left-[15%] -top-[18%] z-0 h-[75vw] w-[75vw] max-h-[820px] max-w-[820px]"
         style={{
-          background: HEADLINE_GRADIENT,
-          WebkitBackgroundClip: "text",
-          backgroundClip: "text",
-          color: "transparent",
+          background:
+            "radial-gradient(50% 50% at 50% 50%, rgba(59, 130, 246, 0.075), transparent 70%)",
+          filter: "blur(80px)",
         }}
-      >
-        Compose a light into your room
-      </h1>
+      />
+      {/* Whisper blue lower right (dimmed slightly) */}
+      <div
+        aria-hidden
+        className="orb-drift-slow pointer-events-none absolute -right-[20%] top-[50%] z-0 h-[65vw] w-[65vw] max-h-[720px] max-w-[720px]"
+        style={{
+          background:
+            "radial-gradient(50% 50% at 50% 50%, rgba(29, 78, 216, 0.045), transparent 70%)",
+          filter: "blur(80px)",
+        }}
+      />
 
-      <p className="mt-5 max-w-xl text-[16px] leading-[1.6] text-ink-muted">
-        Upload one photo of the fixture and one of your room. We&apos;ll place
-        it, scale it, and light it.
+      {/* Subtle blue vignette around the page edges */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 75% at 50% 50%, transparent 55%, rgba(30, 64, 175, 0.07) 100%)",
+        }}
+      />
+
+      {/* Faint blueprint grid — only visible OUTSIDE the studio bubble area */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.75]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(14, 12, 8, 0.075) 1px, transparent 1px), linear-gradient(90deg, rgba(14, 12, 8, 0.075) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage:
+            "linear-gradient(180deg, black 0%, black 18%, transparent 36%)",
+          WebkitMaskImage:
+            "linear-gradient(180deg, black 0%, black 18%, transparent 36%)",
+        }}
+      />
+
+      {/* Paper grain */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 opacity-[0.05]"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
+          mixBlendMode: "multiply",
+        }}
+      />
+    </>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function Header({
+  userEmail,
+  onSignOut,
+}: {
+  userEmail: string;
+  onSignOut: () => void;
+}) {
+  return (
+    <header className="relative z-20">
+      <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-5 sm:h-16 sm:px-6">
+        <Link
+          href="/"
+          aria-label="Plumely home"
+          className="flex items-center gap-2 transition hover:opacity-70"
+        >
+          <Logo size={22} withWordmark={false} />
+          <span className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
+            Plumely
+          </span>
+        </Link>
+        <div className="flex items-center gap-2.5">
+          <span className="hidden font-mono text-[10.5px] tracking-tight text-ink-soft md:inline">
+            {userEmail}
+          </span>
+          <button
+            onClick={onSignOut}
+            aria-label="Sign out"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[rgba(14,12,8,0.12)] bg-white/60 px-3 text-[11.5px] font-medium text-ink-muted backdrop-blur transition hover:border-[rgba(14,12,8,0.25)] hover:bg-white hover:text-ink"
+          >
+            <LogOut className="h-3 w-3" />
+            <span className="hidden sm:inline">Sign out</span>
+          </button>
+        </div>
+      </div>
+      <div className="rule h-px" />
+    </header>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+/* Typewriter — types out the hero in fast bursts, with a blinking caret while typing.
+   The "typed" flag is persisted in `sessionStorage` so the animation runs at most
+   once per browser session. Survives re-mounts, navigations, focus changes, etc. */
+const HEADING_TEXT = "See it, before you buy it.";
+const BUY_START = HEADING_TEXT.indexOf("buy");
+const BUY_END = BUY_START + 3;
+const TYPE_SPEED_MS = 42;
+const TYPE_START_DELAY_MS = 220;
+const TYPED_FLAG_KEY = "plumely:heading-typed";
+
+function readTypedFlag(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(TYPED_FLAG_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeTypedFlag() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(TYPED_FLAG_KEY, "1");
+  } catch {
+    // ignore (private mode, quota, etc.)
+  }
+}
+
+function TypedHeading() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  
+  const [chars, setChars] = useState(() =>
+    readTypedFlag() ? HEADING_TEXT.length : 0,
+  );
+  const [started, setStarted] = useState(() => readTypedFlag());
+
+  useEffect(() => {
+    if (started) return;
+    const start = setTimeout(() => setStarted(true), TYPE_START_DELAY_MS);
+    return () => clearTimeout(start);
+  }, [started]);
+
+  useEffect(() => {
+    if (!started) return;
+    if (chars >= HEADING_TEXT.length) {
+      writeTypedFlag();
+      return;
+    }
+    const t = setTimeout(
+      () => setChars((c) => c + 1),
+      TYPE_SPEED_MS,
+    );
+    return () => clearTimeout(t);
+  }, [chars, started]);
+
+  const done = chars >= HEADING_TEXT.length;
+  const before = HEADING_TEXT.slice(0, Math.min(chars, BUY_START));
+  const buyShown =
+    chars > BUY_START ? HEADING_TEXT.slice(BUY_START, Math.min(chars, BUY_END)) : "";
+  const after = chars > BUY_END ? HEADING_TEXT.slice(BUY_END, chars) : "";
+if (!mounted) return null;
+  return (
+    <h1
+      className="mt-7 font-semibold leading-[1.0] tracking-[-0.045em] text-ink"
+      style={{
+        fontSize: "clamp(2.5rem, 11.5vw, 4.5rem)",
+        minHeight: "1em",
+      }}
+      aria-label={HEADING_TEXT}
+    >
+      <span aria-hidden>
+        {before}
+        <span className="gradient-flow font-semibold">{buyShown}</span>
+        {after}
+        {!done && (
+          <span
+            className="caret-blink ml-0.5 inline-block"
+            style={{ color: "#1d4ed8", fontWeight: 300 }}
+          >
+            |
+          </span>
+        )}
+      </span>
+    </h1>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="text-center">
+      <TypedHeading />
+
+      <p
+        className="shimmer-blue fade-up mx-auto mt-5 max-w-[30rem] text-[15px] font-medium leading-[1.55] sm:text-[16px]"
+        style={{ animationDelay: "0.22s" }}
+      >
+        Drop a fixture. Drop a room. We compose, light, and render —
+        in fifteen seconds.
       </p>
     </section>
   );
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* Pipeline — three glass pills that light up blue in sequence.               */
 
-function ProgressBar({
-  status,
-  hasFiles,
+function Pipeline({
+  light,
+  room,
+  done,
+  busy,
 }: {
-  status: GenerationStatus;
-  hasFiles: boolean;
+  light: boolean;
+  room: boolean;
+  done: boolean;
+  busy: boolean;
 }) {
-  const steps = [
-    { key: "upload", label: "Upload" },
-    { key: "generate", label: "Generate" },
-    { key: "download", label: "Download" },
-  ] as const;
+  const nodes: {
+    label: string;
+    code: string | null;
+    done: boolean;
+    overlay: string;
+    dotOverlay: string;
+  }[] = [
+    { label: "Fixture", code: null, done: light, overlay: "cascade-overlay-1", dotOverlay: "cascade-dot-overlay-1" },
+    { label: "Room", code: null, done: room, overlay: "cascade-overlay-2", dotOverlay: "cascade-dot-overlay-2" },
+    { label: "Result", code: "→", done, overlay: "cascade-overlay-3", dotOverlay: "cascade-dot-overlay-3" },
+  ];
+  return (
+    <div
+      className="fade-up mt-8 flex items-center justify-center gap-1.5 sm:gap-3"
+      style={{ animationDelay: "0.28s" }}
+    >
+      {nodes.map((n, i) => (
+        <div key={n.label} className="flex items-center gap-1.5 sm:gap-3">
+          <div
+            className="relative inline-flex h-8 items-center gap-1.5 overflow-hidden rounded-md border px-2.5 sm:h-9 sm:px-3"
+            style={
+              n.done
+                ? {
+                    background: `linear-gradient(180deg, rgba(96, 165, 250, 0.22) 0%, rgba(255, 255, 255, 0.60) 100%)`,
+                    borderColor: `rgba(30, 64, 175, 0.55)`,
+                    boxShadow: `0 0 0 1px rgba(30, 64, 175, 0.22), 0 8px 24px -8px ${BLUE_DARK}88`,
+                  }
+                : {
+                    background:
+                      "linear-gradient(180deg, rgba(255, 255, 255, 0.70) 0%, rgba(255, 255, 255, 0.35) 100%)",
+                    borderColor: "rgba(14, 12, 8, 0.10)",
+                  }
+            }
+          >
+            {/* Animated overlay — opacity-only, GPU-accelerated */}
+            {!n.done && (
+              <span aria-hidden className={`cascade-overlay ${n.overlay}`} />
+            )}
+            {n.code !== null && (
+              <span
+                className="relative z-[1] grid h-4 w-4 place-items-center overflow-hidden rounded-sm font-mono text-[8.5px] font-semibold"
+                style={
+                  n.done
+                    ? { background: BLUE_DARK, color: "#ffffff" }
+                    : {
+                        background: "rgba(14, 12, 8, 0.10)",
+                        color: "rgba(14, 12, 8, 0.72)",
+                      }
+                }
+              >
+                {!n.done && (
+                  <span aria-hidden className={`cascade-dot-overlay ${n.dotOverlay}`} />
+                )}
+                <span className="relative z-[1]">
+                  {n.done ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : n.code}
+                </span>
+              </span>
+            )}
+            <span
+              className="relative z-[1] font-mono text-[10.5px] uppercase tracking-[0.16em]"
+              style={{ color: n.done ? BLUE_DARK : "rgba(14, 12, 8, 0.72)" }}
+            >
+              {n.label}
+            </span>
+          </div>
+          {i < nodes.length - 1 && (
+            <div
+              className="relative h-px w-6 overflow-hidden sm:w-10"
+              style={{ background: "rgba(14,12,8,0.12)" }}
+            >
+              <span
+                className={`absolute inset-y-0 left-0 w-1/2 ${
+                  i === 0 ? "cascade-wire-1" : "cascade-wire-2"
+                }`}
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${BLUE_DARK}, transparent)`,
+                }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  // Determine state of each step
-  const generating =
-    status === "uploading" || status === "queued" || status === "running";
-  const succeeded = status === "succeeded";
+/* ────────────────────────────────────────────────────────────────────────── */
 
-  // Index of the highest fully-completed step
-  const completedIndex = succeeded ? 2 : generating ? 0 : hasFiles ? 0 : -1;
-  // Index of the currently active step
-  const currentIndex = succeeded ? 2 : generating ? 1 : hasFiles ? 1 : 0;
+function Studio({
+  light,
+  room,
+  meta,
+  setLight,
+  setRoom,
+  setMeta,
+  onSubmit,
+  onReset,
+  ready,
+  busy,
+  status,
+  error,
+  showReset,
+  resultUrl,
+  generationId,
+  resultRef,
+}: {
+  light: File | null;
+  room: File | null;
+  meta: LightMeta;
+  setLight: (f: File | null) => void;
+  setRoom: (f: File | null) => void;
+  setMeta: React.Dispatch<React.SetStateAction<LightMeta>>;
+  onSubmit: () => void;
+  onReset: () => void;
+  ready: boolean;
+  busy: boolean;
+  status: GenerationStatus;
+  error: string | null;
+  showReset: boolean;
+  resultUrl: string | null;
+  generationId: string | null;
+  resultRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const disabled = busy || !ready;
+  const [chipPulse, setChipPulse] = useState<{ v: LightType; n: number } | null>(null);
+
+  function clickChip(v: Exclude<LightType, "">) {
+    setMeta((m) => ({ ...m, type: m.type === v ? "" : v }));
+    setChipPulse((prev) => ({ v, n: (prev?.v === v ? prev.n : 0) + 1 }));
+  }
 
   return (
-    <div className="relative z-30 border-b border-outline/30 bg-white/75 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-2.5 md:gap-4">
-        {steps.map((step, i) => {
-          const isComplete = i <= completedIndex;
-          const isCurrent = i === currentIndex && !isComplete;
+    <section
+      className="panel-rise relative mt-9 md:mt-12"
+      style={{ animationDelay: "0.34s" }}
+    >
+      {/* Soft blue "lamplight" leaking under the card */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-6 -bottom-10 z-0 h-24"
+        style={{
+          background:
+            "radial-gradient(60% 60% at 50% 0%, rgba(59, 130, 246, 0.30), transparent 70%)",
+          filter: "blur(40px)",
+        }}
+      />
 
-          const dotClass = isComplete
-            ? "text-white"
-            : isCurrent
-              ? "border-2 border-ink bg-white text-ink"
-              : "border border-outline/70 bg-white text-ink-soft";
+      <div className="glass-studio relative z-10 overflow-hidden rounded-[22px] p-4 sm:rounded-[26px] sm:p-7">
+        {/* Card eyebrow */}
+        <div className="mb-4 flex items-center justify-between">
+          <p className="flex items-center gap-2 font-mono text-[9.5px] uppercase tracking-[0.24em]">
+            <span
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{ background: BLUE, boxShadow: `0 0 8px ${BLUE_BRIGHT}` }}
+            />
+            <span
+              className="font-semibold"
+              style={{
+                background: BLUE_GRADIENT,
+                WebkitBackgroundClip: "text",
+                backgroundClip: "text",
+                color: "transparent",
+              }}
+            >
+              Studio
+            </span>
+          </p>
+          <p
+            className="gradient-flow font-mono text-[9.5px] font-bold uppercase tracking-[0.22em]"
+            style={{ animationDuration: "1.8s" }}
+          >
+            ~15s
+          </p>
+        </div>
 
-          const dotStyle = isComplete
-            ? { background: BRAND_GRADIENT }
-            : undefined;
+        {/* Two upload bubbles — synchronized blue breath */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <UploadTile
+            label="Light fixture"
+            placeholder="Tap to add the product"
+            file={light}
+            onFile={setLight}
+            breatheClass="bubble-breathe-1"
+            scanClass="tile-scan-1"
+          />
+          <UploadTile
+            label="Your room"
+            placeholder="Tap to add a room photo"
+            file={room}
+            onFile={setRoom}
+            breatheClass="bubble-breathe-2"
+            scanClass="tile-scan-2"
+          />
+        </div>
 
-          return (
-            <Fragment key={step.key}>
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={`grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold transition ${dotClass}`}
-                  style={dotStyle}
+        {/* Type chips */}
+        <div className="mt-7">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[12.5px] font-medium tracking-tight text-ink">
+              Where does it go?
+            </p>
+            <p
+              className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.22em]"
+              style={{ color: meta.type ? BLUE_DARK : "var(--color-ink-soft)" }}
+            >
+              {meta.type ? "Chosen" : "Choose one"}
+            </p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            {LIGHT_TYPES.map(({ value: v, label, Icon }) => {
+              const active = meta.type === v;
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => clickChip(v)}
+                  aria-pressed={active}
+                  className="chip-fade relative inline-flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-full px-5 text-[14px] font-medium tracking-tight sm:w-auto"
+                  style={{
+                    background: active ? BLUE_DARK : "#ffffff",
+                    border: `1px solid ${active ? BLUE_DARK : "rgba(14,12,8,0.14)"}`,
+                    color: active ? "#ffffff" : "var(--color-ink)",
+                    boxShadow: "none",
+                  }}
                 >
-                  {isComplete ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
-                </span>
-                <span
-                  className={`text-[12px] font-semibold tracking-tight transition ${
-                    isComplete || isCurrent ? "text-ink" : "text-ink-soft"
-                  }`}
-                >
-                  {step.label}
-                </span>
+                  {chipPulse?.v === v && (
+                    <span
+                      aria-hidden
+                      key={`scan-${v}-${chipPulse.n}`}
+                      className="chip-scan"
+                    />
+                  )}
+                  <span className="relative z-[1] inline-flex items-center gap-2">
+                    <Icon className="h-4 w-4" strokeWidth={1.85} />
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {error && (
+          <p
+            className="mt-6 rounded-lg px-3.5 py-2.5 text-[12.5px] leading-[1.5]"
+            style={{
+              background: "rgba(96, 165, 250, 0.10)",
+              border: "1px solid rgba(59, 130, 246, 0.30)",
+              color: BLUE_DEEP,
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        {/* CTA row */}
+        <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:gap-2.5">
+          {showReset && (
+            <button
+              onClick={onReset}
+              className="inline-flex h-12 items-center justify-center gap-1.5 rounded-full border border-[rgba(14,12,8,0.14)] bg-white px-4 text-[13px] font-medium text-ink-muted transition hover:border-[rgba(14,12,8,0.28)] hover:text-ink"
+            >
+              <RefreshCcw className="h-3.5 w-3.5" /> Start over
+            </button>
+          )}
+          <button
+            onClick={onSubmit}
+            disabled={disabled}
+            className="group relative inline-flex h-12 flex-1 items-center justify-center gap-2 overflow-hidden rounded-full text-[14px] font-semibold tracking-tight transition-colors duration-200 disabled:cursor-not-allowed"
+            style={{
+              background: disabled
+                ? "rgba(14,12,8,0.12)"
+                : BLUE_DEEP,
+              border: "none",
+              color: disabled ? "rgba(14,12,8,0.40)" : "#ffffff",
+              boxShadow: disabled ? "none" : `0 8px 22px -8px ${BLUE_DEEP}80`,
+            }}
+          >
+            {!disabled && <span aria-hidden className="btn-scan-overlay" />}
+            <span className="relative z-10 flex items-center gap-2">
+              {busy ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {status === "uploading"
+                    ? "Uploading…"
+                    : status === "queued"
+                      ? "Queued…"
+                      : "Generating…"}
+                </>
+              ) : (
+                <>
+                  Generate
+                  <ArrowRight
+                    className="h-4 w-4 transition group-hover:translate-x-0.5"
+                    strokeWidth={2.5}
+                  />
+                </>
+              )}
+            </span>
+          </button>
+        </div>
+
+        <p className="mt-3 text-center font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-soft sm:text-right">
+          {busy
+            ? "Hang tight — almost there"
+            : !light || !room
+              ? "Add both photos to continue"
+              : !meta.type
+                ? "Pick where the light goes"
+                : "Roughly 15 seconds"}
+        </p>
+
+        {(busy || resultUrl) && (
+          <div
+            ref={resultRef}
+            className="fade-up mt-7 pt-7"
+            style={{ borderTop: "1px solid rgba(14, 12, 8, 0.08)" }}
+          >
+            <div className="mb-3 flex items-baseline justify-between">
+              <p className="text-[12.5px] font-medium tracking-tight text-ink">
+                Preview
+              </p>
+              <p
+                className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.22em]"
+                style={{ color: resultUrl ? BLUE_DARK : "var(--color-ink-soft)" }}
+              >
+                {resultUrl
+                  ? "Ready"
+                  : status === "uploading"
+                    ? "Uploading"
+                    : status === "queued"
+                      ? "Queued"
+                      : "Rendering"}
+              </p>
+            </div>
+
+            <div
+              className="relative overflow-hidden rounded-[16px]"
+              style={{
+                border: "1px solid rgba(14, 12, 8, 0.10)",
+                background:
+                  "linear-gradient(160deg, #ffffff 0%, rgba(219, 234, 254, 0.55) 100%)",
+              }}
+            >
+              <div className="aspect-[16/10] w-full overflow-hidden">
+                {resultUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={resultUrl}
+                    alt="Generated visualization"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="relative flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0"
+                      style={{
+                        background:
+                          "radial-gradient(40% 40% at 50% 50%, rgba(96, 165, 250, 0.20), transparent 70%)",
+                      }}
+                    />
+                    <Loader2
+                      className="relative h-6 w-6 animate-spin"
+                      style={{ color: BLUE_DARK }}
+                    />
+                    <p className="relative text-[13px] font-medium tracking-tight text-ink">
+                      {status === "uploading"
+                        ? "Uploading photos…"
+                        : status === "queued"
+                          ? "In the queue…"
+                          : "Composing your room…"}
+                    </p>
+                    {generationId && (
+                      <p className="relative font-mono text-[10.5px] tracking-[0.14em] text-ink-soft">
+                        id · {generationId.slice(0, 8)}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-              {i < steps.length - 1 && (
-                <span
+            </div>
+
+            {resultUrl && (
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="font-mono text-[9.5px] uppercase tracking-[0.22em] text-ink-soft">
+                  Photoreal · Plumely
+                </p>
+                <DownloadButton url={resultUrl} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Downloads the rendered image without navigating the page.                  */
+/* A plain <a href download> ignores the `download` attribute for cross-origin */
+/* URLs (which signed Supabase URLs are) and navigates instead, wiping state.  */
+/* We fetch → blob → object URL → programmatic click instead.                  */
+
+function DownloadButton({ url }: { url: string }) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleClick() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`status ${response.status}`);
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = "plumely-render.png";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoke after a tick so the click has time to register.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch {
+      // Fallback: open in a new tab so the current page never navigates.
+      window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={busy}
+      className="relative inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-full px-4 text-[12px] font-semibold text-white transition hover:opacity-95 disabled:cursor-wait disabled:opacity-80"
+      style={{
+        background: BLUE_DARK,
+        boxShadow: `0 6px 18px -6px ${BLUE_DARK}88`,
+      }}
+    >
+      <span aria-hidden className="btn-scan-overlay" />
+      <span className="relative z-10 inline-flex items-center gap-1.5">
+        {busy ? (
+          <Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <Download className="h-3 w-3" />
+        )}
+        {busy ? "Saving…" : "Download"}
+      </span>
+    </button>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function UploadTile({
+  label,
+  placeholder,
+  file,
+  onFile,
+  breatheClass,
+  scanClass,
+}: {
+  label: string;
+  placeholder: string;
+  file: File | null;
+  onFile: (f: File | null) => void;
+  breatheClass?: string;
+  scanClass?: string;
+}) {
+  const [isOver, setIsOver] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f && f.type.startsWith("image/")) onFile(f);
+  };
+
+  if (file) {
+    return (
+      <div
+        className="group relative aspect-[4/3] overflow-hidden rounded-xl"
+        style={{
+          border: `1px solid rgba(59, 130, 246, 0.40)`,
+          boxShadow: `0 0 0 1px rgba(59,130,246,0.15), 0 14px 40px -16px ${BLUE_DEEP}55`,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={URL.createObjectURL(file)}
+          alt={label}
+          className="h-full w-full object-cover"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.55) 0%, transparent 28%, transparent 72%, rgba(255,255,255,0.40) 100%)",
+          }}
+        />
+        <div className="absolute inset-x-3 top-3 flex items-start justify-between">
+          <span
+            className="inline-flex items-center rounded-md px-2 py-1 text-[10.5px] font-medium tracking-tight backdrop-blur"
+            style={{
+              background: "rgba(255,255,255,0.78)",
+              border: `1px solid rgba(59, 130, 246, 0.35)`,
+              color: "var(--color-ink)",
+            }}
+          >
+            {label}
+          </span>
+          <button
+            type="button"
+            onClick={() => onFile(null)}
+            aria-label={`Remove ${label}`}
+            className="grid h-7 w-7 place-items-center rounded-md backdrop-blur transition hover:scale-105"
+            style={{
+              background: "rgba(255,255,255,0.78)",
+              border: "1px solid rgba(14,12,8,0.18)",
+              color: "var(--color-ink)",
+            }}
+          >
+            <X className="h-3 w-3" strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <label
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsOver(true);
+      }}
+      onDragLeave={() => setIsOver(false)}
+      onDrop={handleDrop}
+      className={`group relative flex aspect-[4/3] min-h-[150px] cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl text-center transition-colors duration-200 hover:-translate-y-px ${
+        isOver ? "" : breatheClass ?? ""
+      }`}
+      style={{
+        background: "linear-gradient(160deg, #ffffff 0%, rgba(219, 234, 254, 0.55) 100%)",
+        border: isOver
+          ? `1px solid ${BLUE}`
+          : "1px dashed rgba(14, 12, 8, 0.14)",
+        boxShadow: isOver
+          ? `0 0 0 3px rgba(59,130,246,0.18), 0 16px 36px -10px ${BLUE_DEEP}66`
+          : undefined,
+      }}
+    >
+      {/* Subtle slow scan sweep — staggered between the two upload tiles */}
+      {scanClass && <span aria-hidden className={`tile-scan ${scanClass}`} />}
+
+      <span
+        className="relative grid h-9 w-9 place-items-center rounded-full transition group-hover:scale-105"
+        style={{
+          background: "#ffffff",
+          border: `1px solid rgba(59, 130, 246, 0.35)`,
+          boxShadow: `0 0 14px rgba(59, 130, 246, 0.18)`,
+        }}
+      >
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.25} style={{ color: BLUE_DEEP }} />
+      </span>
+      <span className="relative mt-0.5 text-[13px] font-medium tracking-tight text-ink">
+        {label}
+      </span>
+      <span className="relative text-[11.5px] leading-[1.5] text-ink-soft">
+        {placeholder}
+      </span>
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+      />
+    </label>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* TemplatesStrip — same glass bubble style as upload tiles.                  */
+
+function TemplatesStrip({
+  onPick,
+}: {
+  onPick: (t: RoomTemplate) => void;
+}) {
+  const breatheClasses = ["bubble-breathe-1", "bubble-breathe-2", "bubble-breathe-3"];
+  return (
+    <section className="relative mt-12">
+      <div className="mb-4 flex items-end justify-between gap-3 px-0.5">
+        <h2
+          className="font-semibold leading-[1.0] tracking-[-0.045em] text-ink"
+          style={{ fontSize: "clamp(1.5rem, 5.5vw, 2rem)" }}
+        >
+          Sample rooms
+        </h2>
+        <p
+          className="tap-pulse shrink-0 pb-1 inline-flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.20em] sm:text-[10.5px] sm:tracking-[0.22em]"
+          style={{ color: BLUE_DEEP }}
+        >
+          Tap to use
+          <ChevronDown className="tap-bob h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={2.5} />
+        </p>
+      </div>
+
+      {/* Soft blue lamplight under the bubble */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-6 -bottom-8 z-0 h-20"
+        style={{
+          background:
+            "radial-gradient(60% 60% at 50% 0%, rgba(59, 130, 246, 0.20), transparent 70%)",
+          filter: "blur(38px)",
+        }}
+      />
+
+      <div className="glass-studio relative z-10 overflow-hidden rounded-[20px] p-2.5 sm:rounded-[26px] sm:p-5">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+          {ROOM_TEMPLATES.map((t, i) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onPick(t)}
+              className={`group relative overflow-hidden rounded-xl text-left transition-colors hover:-translate-y-px ${breatheClasses[i]}`}
+              style={{
+                background:
+                  "linear-gradient(160deg, #ffffff 0%, rgba(219, 234, 254, 0.55) 100%)",
+                border: "1px dashed rgba(14, 12, 8, 0.14)",
+              }}
+            >
+              <div className="relative aspect-square w-full overflow-hidden">
+                <TemplateThumbnail template={t} />
+                {/* Dark gradient at the bottom so the title sits legibly over the photo */}
+                <div
                   aria-hidden
-                  className="h-[1.5px] flex-1 rounded-full transition"
+                  className="pointer-events-none absolute inset-0"
                   style={{
                     background:
-                      i < completedIndex
-                        ? BRAND_GRADIENT
-                        : "rgba(14,12,8,0.12)",
+                      "linear-gradient(180deg, transparent 45%, rgba(14, 12, 8, 0.60) 100%)",
                   }}
                 />
-              )}
-            </Fragment>
-          );
-        })}
+                <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1">
+                  <span
+                    className="truncate text-[13px] font-semibold tracking-tight text-white sm:text-[13.5px]"
+                    style={{ textShadow: "0 1px 2px rgba(0,0,0,0.45)" }}
+                  >
+                    {t.label}
+                  </span>
+                  <ArrowUpRight
+                    className="h-3.5 w-3.5 shrink-0 text-white transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                    strokeWidth={2}
+                  />
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TemplateThumbnail({ template }: { template: RoomTemplate }) {
+  const [errored, setErrored] = useState(false);
+  const firstPhoto = template.gallery[0];
+
+  if (errored || !firstPhoto) {
+    return (
+      <div
+        className="relative h-full w-full"
+        style={{ background: template.swatch }}
+      >
+        <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center font-mono text-[8.5px] font-semibold uppercase tracking-[0.24em] text-ink-soft">
+          {template.label}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={firstPhoto}
+      alt={`${template.label} preview`}
+      onError={() => setErrored(true)}
+      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
+      draggable={false}
+    />
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function MobileStickyCTA({
+  ready,
+  busy,
+  status,
+  onSubmit,
+}: {
+  ready: boolean;
+  busy: boolean;
+  status: GenerationStatus;
+  onSubmit: () => void;
+}) {
+  if (!ready && !busy) return null;
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-3 sm:hidden">
+      <div
+        className="rounded-full p-1 backdrop-blur-xl"
+        style={{
+          background: "rgba(255, 255, 255, 0.75)",
+          border: "1px solid rgba(14, 12, 8, 0.08)",
+          boxShadow:
+            "0 -8px 24px -8px rgba(14, 12, 8, 0.10), 0 -20px 60px -24px rgba(37, 99, 235, 0.35)",
+        }}
+      >
+        <button
+          onClick={onSubmit}
+          disabled={busy}
+          className="relative inline-flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-full text-[14px] font-semibold tracking-tight text-white disabled:cursor-not-allowed"
+          style={{
+            background: BLUE_DEEP,
+            border: "none",
+            boxShadow: `0 8px 22px -8px ${BLUE_DEEP}80`,
+          }}
+        >
+          {!busy && <span aria-hidden className="btn-scan-overlay" />}
+          <span className="relative z-10 flex items-center gap-2">
+            {busy ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {status === "uploading"
+                  ? "Uploading…"
+                  : status === "queued"
+                    ? "Queued…"
+                    : "Generating…"}
+              </>
+            ) : (
+              <>
+                Generate
+                <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
+              </>
+            )}
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -548,81 +1341,49 @@ function GalleryModal({
   onSelect: (path: string) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-8">
       <button
         aria-label="Close gallery"
         onClick={onClose}
-        className="absolute inset-0 bg-ink/55 backdrop-blur-md"
+        className="absolute inset-0 bg-[rgba(14,12,8,0.45)] backdrop-blur-md"
       />
-
-      {/* Panel */}
-      <div className="relative z-10 max-h-[88vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-outline/30 bg-white shadow-raised">
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-start justify-between gap-6 border-b border-outline/40 bg-white/95 px-6 py-5 backdrop-blur md:px-8">
+      <div className="glass-light relative z-10 max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-[20px] md:rounded-[24px]">
+        <div
+          className="sticky top-0 z-10 flex items-start justify-between gap-6 px-5 py-4 backdrop-blur md:px-6 md:py-5"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.78) 100%)",
+            borderBottom: "1px solid rgba(14, 12, 8, 0.08)",
+          }}
+        >
           <div>
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-ink-soft">
-              {template.label} · Gallery
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.24em] text-ink-soft">
+              {template.label}
             </p>
-            <h2 className="mt-2 font-display text-[1.875rem] font-extrabold leading-[1.1] tracking-[-0.02em] text-ink md:text-[2.25rem]">
-              Pick a {template.label.toLowerCase()} house
+            <h2 className="mt-1.5 text-[20px] font-semibold tracking-[-0.025em] text-ink md:text-[22px]">
+              Pick a sample room
             </h2>
-            <p className="mt-2 max-w-md text-[13.5px] leading-[1.6] text-ink-muted">
-              Don&apos;t have your own photo? Click any house below to use it
-              as your room for this generation.
-            </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-outline/60 bg-white text-ink-muted transition hover:border-ink hover:text-ink"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[rgba(14,12,8,0.12)] bg-white/70 text-ink-muted transition hover:bg-white hover:text-ink"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
-
-        {/* Grid */}
-        <div className="grid gap-4 p-6 sm:grid-cols-2 md:p-8 lg:grid-cols-3">
+        <div className="grid gap-2.5 p-4 sm:grid-cols-2 md:gap-3 md:p-6 lg:grid-cols-3">
           {template.gallery.map((path, i) => (
             <GalleryPhoto
               key={path}
               path={path}
-              label={`${template.label} house ${i + 1}`}
+              label={`${template.label} ${i + 1}`}
               onSelect={onSelect}
             />
           ))}
         </div>
       </div>
     </div>
-  );
-}
-
-function TemplateThumbnail({ template }: { template: RoomTemplate }) {
-  const [errored, setErrored] = useState(false);
-  const firstPhoto = template.gallery[0];
-
-  if (errored || !firstPhoto) {
-    return (
-      <div
-        className="relative h-full w-full"
-        style={{ background: template.swatch }}
-      >
-        <span className="absolute inset-x-0 bottom-3 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.24em] text-white/75 mix-blend-overlay">
-          {template.label}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={firstPhoto}
-      alt={`${template.label} preview`}
-      onError={() => setErrored(true)}
-      className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-      draggable={false}
-    />
   );
 }
 
@@ -642,15 +1403,18 @@ function GalleryPhoto({
       type="button"
       onClick={() => !errored && onSelect(path)}
       disabled={errored}
-      className="group relative overflow-hidden rounded-xl border border-outline/40 bg-[#FAFAF7] text-left shadow-soft transition duration-300 hover:-translate-y-0.5 hover:border-outline hover:shadow-raised disabled:cursor-not-allowed disabled:opacity-80 disabled:hover:translate-y-0"
+      className="glass-light-soft group relative overflow-hidden rounded-lg text-left transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-70"
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F0EDE5]">
+      <div
+        className="relative aspect-[4/3] w-full overflow-hidden"
+        style={{ background: "rgba(255,255,255,0.5)" }}
+      >
         {errored ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center">
-            <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.22em] text-ink-soft">
+            <span className="font-mono text-[9.5px] font-bold uppercase tracking-[0.24em] text-ink-soft">
               Coming soon
             </span>
-            <span className="text-[11px] leading-[1.5] text-ink-soft/70">
+            <span className="text-[10.5px] leading-[1.5] text-ink-soft/70">
               {path}
             </span>
           </div>
@@ -660,484 +1424,21 @@ function GalleryPhoto({
             src={path}
             alt={label}
             onError={() => setErrored(true)}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
             draggable={false}
           />
         )}
       </div>
       {!errored && (
-        <div className="flex items-center justify-between px-3 py-2.5">
-          <span className="text-[12px] font-medium text-ink">{label}</span>
+        <div className="flex items-center justify-between px-2.5 py-2">
+          <span className="text-[11.5px] font-medium text-ink">{label}</span>
           <ArrowRight
-            className="h-3.5 w-3.5 text-ink-soft transition group-hover:translate-x-0.5 group-hover:text-ink"
+            className="h-3 w-3 transition group-hover:translate-x-0.5"
             strokeWidth={1.75}
+            style={{ color: BLUE_DEEP }}
           />
         </div>
       )}
     </button>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function TemplateBlocks({
-  onPick,
-}: {
-  onPick: (t: RoomTemplate) => void;
-}) {
-  return (
-    <section className="mt-10">
-      <div className="mb-4 flex items-baseline justify-between">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-ink-soft">
-          Or start with a template
-        </p>
-        <p className="text-[11px] leading-[1.6] text-ink-soft">
-          Don&apos;t have a room photo handy? Pick one.
-        </p>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {ROOM_TEMPLATES.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => onPick(t)}
-            className="group relative overflow-hidden rounded-2xl border border-outline/40 bg-white text-left shadow-soft transition duration-300 hover:-translate-y-0.5 hover:border-outline hover:shadow-raised"
-          >
-            <div className="relative aspect-[4/3] w-full overflow-hidden">
-              <TemplateThumbnail template={t} />
-            </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <p className="font-display text-[15px] font-bold tracking-tight text-ink">
-                  {t.label}
-                </p>
-                <p className="text-[11px] leading-[1.5] text-ink-soft">
-                  {t.description}
-                </p>
-              </div>
-              <ArrowRight
-                className="h-4 w-4 text-ink-soft transition group-hover:translate-x-0.5 group-hover:text-ink"
-                strokeWidth={1.75}
-              />
-            </div>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function LightTypeSelector({
-  value,
-  onChange,
-}: {
-  value: LightType;
-  onChange: (t: LightType) => void;
-}) {
-  return (
-    <section className="mt-10">
-      <div className="group relative rounded-2xl bg-white shadow-soft">
-        {/* Gradient border ring — matches the upload cards */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-2xl"
-          style={{
-            padding: "3px",
-            background:
-              "conic-gradient(from 45deg at 50% 50%, #FF7A00 0%, #FF5C7A 25%, #7B2CBF 50%, #FF5C7A 75%, #FF7A00 100%)",
-            WebkitMask:
-              "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-            WebkitMaskComposite: "xor",
-            mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-            maskComposite: "exclude",
-          }}
-        />
-
-        <div className="relative p-6 md:p-8">
-          <div className="flex items-baseline justify-between gap-4">
-            <div>
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-ink-soft">
-                Step 3 · Mounting
-              </p>
-              <h2 className="mt-2 font-playfair text-[1.625rem] font-extrabold leading-[1.15] tracking-[-0.015em] text-ink md:text-[2rem]">
-                Where does your light go?
-              </h2>
-              <p className="mt-2 max-w-md text-[14px] leading-[1.6] text-ink-muted">
-                Pick the fixture type so the AI places it in the right spot.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {LIGHT_TYPES.map(({ value: v, label, description, Icon }) => {
-              const active = value === v;
-              return (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => onChange(active ? "" : v)}
-                  aria-pressed={active}
-                  className={`group/btn relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition duration-200 ${
-                    active
-                      ? "border-transparent bg-ink text-white shadow-[0_8px_24px_-8px_rgba(124,58,237,0.45)]"
-                      : "border-outline/50 bg-white text-ink hover:-translate-y-0.5 hover:border-ink hover:shadow-soft"
-                  }`}
-                  style={
-                    active
-                      ? {
-                          background:
-                            "linear-gradient(135deg, #7B2CBF 0%, #d946ef 50%, #FF7A00 100%)",
-                        }
-                      : undefined
-                  }
-                >
-                  <span
-                    className={`grid h-9 w-9 place-items-center rounded-lg ${
-                      active
-                        ? "bg-white/15 text-white"
-                        : "bg-brand-purple-soft text-brand-purple"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <span
-                    className={`font-display text-[16px] font-bold tracking-tight ${
-                      active ? "text-white" : "text-ink"
-                    }`}
-                  >
-                    {label}
-                  </span>
-                  <span
-                    className={`text-[11.5px] leading-[1.5] ${
-                      active ? "text-white/85" : "text-ink-soft"
-                    }`}
-                  >
-                    {description}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function HowItWorks() {
-  const steps = [
-    {
-      n: "01",
-      Icon: Lightbulb,
-      title: "Pick your light",
-      body: "Upload a high-quality photograph of your chosen fixture.",
-    },
-    {
-      n: "02",
-      Icon: Camera,
-      title: "Snap your room",
-      body: "Provide an image of the intended installation space.",
-    },
-    {
-      n: "03",
-      Icon: Sparkles,
-      title: "See it for real",
-      body: "Receive a photorealistic visualization in seconds.",
-    },
-  ];
-
-  return (
-    <div className="mt-6 grid gap-6 md:grid-cols-3">
-      {steps.map(({ n, Icon, title, body }) => (
-        <article
-          key={n}
-          className="group rounded-2xl border border-outline/40 bg-white p-6 shadow-soft transition duration-300 hover:-translate-y-0.5 hover:shadow-raised"
-        >
-          <div className="flex items-start justify-between">
-            <span
-              className="grid h-10 w-10 place-items-center rounded-xl text-brand-purple"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(124,58,237,0.14) 0%, rgba(245,158,11,0.14) 100%)",
-              }}
-            >
-              <Icon className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <span className="font-mono text-[11px] font-semibold tracking-[0.18em] text-ink-soft">
-              {n}
-            </span>
-          </div>
-          <h3 className="mt-7 font-display text-[1.25rem] font-bold tracking-tight text-ink">
-            {title}
-          </h3>
-          <p className="mt-2 text-[14px] leading-[1.6] text-ink-muted">
-            {body}
-          </p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-
-function UploadCard({
-  number,
-  label,
-  file,
-  onFile,
-  tone,
-}: {
-  number: string;
-  label: string;
-  file: File | null;
-  onFile: (f: File | null) => void;
-  tone: "primary" | "accent";
-}) {
-  const hoverGlow =
-    tone === "accent"
-      ? "hover:border-brand-purple/40 hover:shadow-[0_0_0_1px_rgba(124,58,237,0.18),0_18px_50px_-10px_rgba(124,58,237,0.28)]"
-      : "hover:border-brand-orange/40 hover:shadow-[0_0_0_1px_rgba(245,158,11,0.20),0_18px_50px_-10px_rgba(245,158,11,0.28)]";
-  const iconColor =
-    tone === "accent" ? "text-brand-purple" : "text-brand-orange";
-
-  return (
-    <div className={`group relative rounded-2xl bg-white shadow-soft transition duration-300 ${hoverGlow}`}>
-      {/* Gradient border ring — uses mask-composite so it wraps every rounded corner perfectly */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-2xl"
-        style={{
-          padding: "3px",
-          background:
-            "conic-gradient(from 45deg at 50% 50%, #FF7A00 0%, #FF5C7A 25%, #7B2CBF 50%, #FF5C7A 75%, #FF7A00 100%)",
-          WebkitMask:
-            "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-          WebkitMaskComposite: "xor",
-          mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-          maskComposite: "exclude",
-        }}
-      />
-    <div className="relative rounded-2xl p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.24em] text-ink-soft">
-            Step {number}
-          </span>
-          <span className="font-playfair text-[1.625rem] font-extrabold leading-[1.15] tracking-[-0.015em] text-ink">
-            {label}
-          </span>
-        </div>
-        {file && (
-          <button
-            onClick={() => onFile(null)}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-ink-muted transition hover:text-error"
-          >
-            <X className="h-3 w-3" /> Remove
-          </button>
-        )}
-      </div>
-
-      {file ? (
-        <div className="mt-4 overflow-hidden rounded-xl ring-1 ring-outline/30">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={URL.createObjectURL(file)}
-            alt={label}
-            className="aspect-[4/3] w-full object-cover"
-          />
-        </div>
-      ) : (
-        <label
-          className={`relative mt-4 flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-outline/70 bg-[#FCFBF8] text-center transition group-hover:border-outline group-hover:bg-white`}
-        >
-          <span
-            className={`relative z-10 grid h-9 w-9 place-items-center rounded-full bg-white text-ink shadow-soft ring-1 ring-outline/40 transition group-hover:scale-105`}
-          >
-            <Upload className={`h-4 w-4 transition ${iconColor}`} />
-          </span>
-          <span className="relative z-10 text-[14px] font-semibold tracking-tight text-ink">
-            Click to upload
-          </span>
-          <span className="relative z-10 text-[12px] leading-[1.6] text-ink-soft">
-            PNG, JPG, or WEBP · up to 10MB
-          </span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="hidden"
-            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
-      )}
-    </div>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function GenerateAction({
-  ready,
-  busy,
-  status,
-  error,
-  showReset,
-  onSubmit,
-  onReset,
-}: {
-  ready: boolean;
-  busy: boolean;
-  status: GenerationStatus;
-  error: string | null;
-  showReset: boolean;
-  onSubmit: () => void;
-  onReset: () => void;
-}) {
-  const disabled = busy || !ready;
-  return (
-    <div className="mt-10 flex flex-col items-stretch gap-4">
-      {error && (
-        <p className="rounded-lg bg-error/10 px-4 py-3 text-[13px] leading-[1.6] text-error">
-          {error}
-        </p>
-      )}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {showReset && (
-          <button
-            onClick={onReset}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-outline/60 bg-white px-5 py-3.5 text-[14px] font-semibold text-ink transition hover:border-ink"
-          >
-            <RefreshCcw className="h-4 w-4" /> Start over
-          </button>
-        )}
-
-        <button
-          onClick={onSubmit}
-          disabled={disabled}
-          className="group relative flex flex-1 items-center justify-center gap-2 overflow-hidden rounded-2xl px-6 py-4 text-[15px] font-semibold text-white shadow-[0_10px_30px_-8px_rgba(124,58,237,0.45)] transition duration-300 hover:shadow-[0_14px_38px_-8px_rgba(124,58,237,0.55)] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
-          style={{ background: BRAND_GRADIENT }}
-        >
-          <span className="relative z-10 flex items-center gap-2">
-            {busy ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {status === "uploading"
-                  ? "Uploading…"
-                  : status === "queued"
-                    ? "Queued…"
-                    : "Generating…"}
-              </>
-            ) : (
-              <>
-                <Sparkles className="h-4 w-4" strokeWidth={2.25} />
-                Generate my preview
-              </>
-            )}
-          </span>
-          {/* Subtle sweep on hover */}
-          <span
-            aria-hidden
-            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full"
-          />
-        </button>
-      </div>
-
-      <p className="text-center text-[12px] leading-[1.6] text-ink-soft">
-        {disabled && !busy
-          ? "Upload both images to generate."
-          : "Takes ~15 seconds. Free to try."}
-      </p>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function MetaInput({
-  label,
-  placeholder,
-  value,
-  onChange,
-}: {
-  label: string;
-  placeholder: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-        {label}
-      </span>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="mt-1.5 w-full rounded-lg border border-outline/50 bg-[#FCFBF8] px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-brand-purple focus:bg-white focus:ring-2 focus:ring-brand-purple/15"
-      />
-    </label>
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function ResultPanel({
-  status,
-  resultUrl,
-  generationId,
-}: {
-  status: GenerationStatus;
-  resultUrl: string | null;
-  generationId: string | null;
-}) {
-  if (status === "idle" && !resultUrl) return null;
-  return (
-    <div className="mt-12 overflow-hidden rounded-3xl border border-outline/50 bg-white p-2 shadow-raised">
-      <div className="aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[#FAFAF7]">
-        {resultUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={resultUrl}
-            alt="Generated visualization"
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-purple" />
-            <p className="text-sm font-semibold leading-[1.6]">
-              {status === "uploading"
-                ? "Uploading your photos…"
-                : status === "queued"
-                  ? "In the queue…"
-                  : "Generating your visualization…"}
-            </p>
-            {generationId && (
-              <p className="text-xs text-ink-soft">id: {generationId}</p>
-            )}
-          </div>
-        )}
-      </div>
-      {resultUrl && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <p className="text-[12px] leading-[1.6] text-ink-soft">
-            Generated by Plumely. Photoreal composite.
-          </p>
-          <a
-            href={resultUrl}
-            download
-            className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[12px] font-semibold text-white transition hover:bg-brand-purple"
-          >
-            <Download className="h-3.5 w-3.5" /> Download
-          </a>
-        </div>
-      )}
-    </div>
   );
 }

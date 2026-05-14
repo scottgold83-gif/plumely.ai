@@ -69,6 +69,18 @@ export async function POST(request: NextRequest) {
     }
   })();
 
+  // Placement category is required so Gemini knows exactly where to mount the fixture.
+  if (!meta.type || !ALLOWED_LIGHT_TYPES.has(meta.type as LightType)) {
+    return NextResponse.json(
+      {
+        error:
+          "Choose where the light goes (ceiling, wall, pendant, chandelier, or outdoor) before generating.",
+      },
+      { status: 400 },
+    );
+  }
+  const lightType = meta.type as LightType;
+
   // 1. Reserve a generation row so we can use its id in storage paths.
   const { data: gen, error: genErr } = await supabase
     .from("generations")
@@ -141,13 +153,6 @@ export async function POST(request: NextRequest) {
 
   // 5. Enqueue the Trigger.dev task.
   try {
-    // Validate user-declared light type against the allowed set.
-    const lightType =
-      meta.type &&
-      ALLOWED_LIGHT_TYPES.has(meta.type as LightType)
-        ? (meta.type as LightType)
-        : undefined;
-
     const handle = await generateVisualization.trigger({
       generationId,
       userId: user.id,

@@ -11,7 +11,7 @@ import "./globals.css";
 const manrope = Manrope({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-sans",
+  variable: "--font-sans-manrope",
   display: "swap",
 });
 
@@ -19,14 +19,14 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   style: ["normal", "italic"],
   axes: ["opsz", "SOFT"],
-  variable: "--font-display",
+  variable: "--font-display-fraunces",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
-  variable: "--font-mono",
+  variable: "--font-mono-jb",
   display: "swap",
 });
 
@@ -104,7 +104,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fbfaf7",
+  themeColor: "#faf8f3",
   colorScheme: "light",
   width: "device-width",
   initialScale: 1,
