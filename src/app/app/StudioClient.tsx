@@ -705,6 +705,70 @@ function Pipeline({
 }
 
 /* ────────────────────────────────────────────────────────────────────────── */
+/* LoadingState — shown in the preview slot while generation runs.            */
+/* Three pulsing blue dots + a heading + a cycling subtitle.                  */
+
+const COMPOSING_PHRASES = [
+  "Choosing the perfect bulb",
+  "Setting the mood",
+  "Casting realistic shadows",
+  "Painting with light",
+  "Bouncing photons off the walls",
+  "Letting warm light spill in",
+  "Adding the final glow",
+];
+
+function LoadingState({ status }: { status: GenerationStatus }) {
+  const headline =
+    status === "uploading"
+      ? "Uploading your photos"
+      : status === "queued"
+        ? "Lining up the render"
+        : "Composing your room";
+
+  return (
+    <div className="relative flex h-full flex-col items-center justify-center gap-5 px-6 text-center">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(45% 45% at 50% 50%, rgba(96, 165, 250, 0.22), transparent 70%)",
+        }}
+      />
+
+      <div className="relative flex items-center gap-2.5">
+        <span aria-hidden className="loading-dot loading-dot-1" />
+        <span aria-hidden className="loading-dot loading-dot-2" />
+        <span aria-hidden className="loading-dot loading-dot-3" />
+      </div>
+
+      <p className="relative text-[15px] font-semibold tracking-tight text-ink">
+        {headline}
+      </p>
+
+      {status === "running" && <CyclingPhrase phrases={COMPOSING_PHRASES} />}
+    </div>
+  );
+}
+
+function CyclingPhrase({ phrases }: { phrases: string[] }) {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((prev) => (prev + 1) % phrases.length), 2400);
+    return () => clearInterval(t);
+  }, [phrases.length]);
+  return (
+    <p
+      key={i}
+      className="text-fade relative min-h-[1.2em] text-[12.5px] tracking-tight text-ink-muted"
+    >
+      {phrases[i]}
+    </p>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
 
 function Studio({
   light,
@@ -999,32 +1063,7 @@ function Studio({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="relative flex h-full flex-col items-center justify-center gap-3 text-ink-muted">
-                    <div
-                      aria-hidden
-                      className="pointer-events-none absolute inset-0"
-                      style={{
-                        background:
-                          "radial-gradient(40% 40% at 50% 50%, rgba(96, 165, 250, 0.20), transparent 70%)",
-                      }}
-                    />
-                    <Loader2
-                      className="relative h-6 w-6 animate-spin"
-                      style={{ color: BLUE_DARK }}
-                    />
-                    <p className="relative text-[13px] font-medium tracking-tight text-ink">
-                      {status === "uploading"
-                        ? "Uploading photos…"
-                        : status === "queued"
-                          ? "In the queue…"
-                          : "Composing your room…"}
-                    </p>
-                    {generationId && (
-                      <p className="relative font-mono text-[10.5px] tracking-[0.14em] text-ink-soft">
-                        id · {generationId.slice(0, 8)}
-                      </p>
-                    )}
-                  </div>
+                  <LoadingState status={status} />
                 )}
               </div>
             </div>
@@ -1055,26 +1094,72 @@ function Studio({
 
 function DownloadButton({ url }: { url: string }) {
   const [busy, setBusy] = useState(false);
+  // Pre-cache the blob as soon as the result mounts so the click feels instant.
+  // We start fetching in the background; if the user clicks before it's ready,
+  // we await the in-flight promise. Saves a noticeable second on mobile.
+  const blobPromiseRef = useRef<Promise<Blob> | null>(null);
+
+  useEffect(() => {
+    blobPromiseRef.current = fetch(url, { cache: "force-cache" }).then((r) => {
+      if (!r.ok) throw new Error(`status ${r.status}`);
+      return r.blob();
+    });
+    return () => {
+      blobPromiseRef.current = null;
+    };
+  }, [url]);
+
+  function filenameFor(mime: string): string {
+    const ext =
+      mime === "image/jpeg" ? "jpg" :
+      mime === "image/webp" ? "webp" :
+      "png";
+    return `plumely-render.${ext}`;
+  }
 
   async function handleClick() {
     if (busy) return;
     setBusy(true);
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`status ${response.status}`);
-      const blob = await response.blob();
+      const blob = await (blobPromiseRef.current ??
+        fetch(url).then((r) => {
+          if (!r.ok) throw new Error(`status ${r.status}`);
+          return r.blob();
+        }));
+      const mime = blob.type || "image/png";
+      const filename = filenameFor(mime);
+      const file = new File([blob], filename, { type: mime });
+
+      // Mobile path: native share sheet → "Save Image" puts it directly in
+      // Photos / Gallery. Much faster perceived speed than a download.
+      const nav = typeof navigator !== "undefined" ? navigator : undefined;
+      if (
+        nav?.canShare &&
+        nav.canShare({ files: [file] }) &&
+        typeof nav.share === "function"
+      ) {
+        try {
+          await nav.share({ files: [file], title: "Plumely render" });
+          return;
+        } catch (err) {
+          // User dismissed the share sheet → don't fall through to download.
+          if (err instanceof Error && err.name === "AbortError") return;
+          // Any other share failure → fall through to anchor download.
+        }
+      }
+
+      // Desktop / browsers without Web Share API: trigger a direct download.
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
-      a.download = "plumely-render.png";
+      a.download = filename;
       a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      // Revoke after a tick so the click has time to register.
       setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch {
-      // Fallback: open in a new tab so the current page never navigates.
+      // Last-resort fallback: open in a new tab.
       window.open(url, "_blank", "noopener,noreferrer");
     } finally {
       setBusy(false);
@@ -1099,7 +1184,7 @@ function DownloadButton({ url }: { url: string }) {
         ) : (
           <Download className="h-3 w-3" />
         )}
-        {busy ? "Saving…" : "Download"}
+        {busy ? "Saving…" : "Save"}
       </span>
     </button>
   );
