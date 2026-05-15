@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
-  ArrowUpRight,
   Check,
   ChevronDown,
   Download,
@@ -13,7 +11,6 @@ import {
   LampWallUp,
   Lightbulb,
   Loader2,
-  LogOut,
   Plus,
   RefreshCcw,
   Send,
@@ -137,8 +134,7 @@ async function fetchPhotoAsFile(
 
 /* ────────────────────────────────────────────────────────────────────────── */
 
-export default function StudioClient({ userEmail }: { userEmail: string }) {
-  const router = useRouter();
+export default function StudioClient() {
   const supabase = createSupabaseBrowserClient();
 
   const [room, setRoom] = useState<File | null>(null);
@@ -209,12 +205,6 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
       });
     }
   }, [resultUrl]);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
 
   async function handleSubmit() {
     if (!room || !light) {
@@ -307,7 +297,7 @@ export default function StudioClient({ userEmail }: { userEmail: string }) {
       style={{ background: "#fbfaf6" }}
     >
       <Atmosphere />
-      <Header userEmail={userEmail} onSignOut={handleSignOut} />
+      <Header />
 
       <main className="relative z-10 mx-auto w-full max-w-[680px] px-4 pb-32 pt-6 sm:px-5 sm:pt-12 md:pt-16">
         <Hero />
@@ -459,16 +449,10 @@ function Atmosphere() {
 
 /* ────────────────────────────────────────────────────────────────────────── */
 
-function Header({
-  userEmail,
-  onSignOut,
-}: {
-  userEmail: string;
-  onSignOut: () => void;
-}) {
+function Header() {
   return (
     <header className="relative z-20">
-      <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-between px-5 sm:h-16 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-center px-5 sm:h-16 sm:px-6">
         <Link
           href="/"
           aria-label="Plumely home"
@@ -479,19 +463,6 @@ function Header({
             Plumely
           </span>
         </Link>
-        <div className="flex items-center gap-2.5">
-          <span className="hidden font-mono text-[10.5px] tracking-tight text-ink-soft md:inline">
-            {userEmail}
-          </span>
-          <button
-            onClick={onSignOut}
-            aria-label="Sign out"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[rgba(14,12,8,0.12)] bg-white/60 px-3 text-[11.5px] font-medium text-ink-muted backdrop-blur transition hover:border-[rgba(14,12,8,0.25)] hover:bg-white hover:text-ink"
-          >
-            <LogOut className="h-3 w-3" />
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
-        </div>
       </div>
       <div className="rule h-px" />
     </header>
@@ -573,7 +544,12 @@ if (!mounted) return null;
     >
       <span aria-hidden>
         {before}
-        <span className="gradient-flow font-semibold">{buyShown}</span>
+        <span
+          className="gradient-flow font-semibold"
+          style={{ paddingRight: "0.08em", marginRight: "-0.04em" }}
+        >
+          {buyShown}
+        </span>
         {after}
         {!done && (
           <span
@@ -1488,17 +1464,8 @@ function TemplatesStrip({
                       "linear-gradient(180deg, transparent 45%, rgba(14, 12, 8, 0.60) 100%)",
                   }}
                 />
-                <div className="absolute inset-x-2 bottom-2 flex items-center justify-between gap-1">
-                  <span
-                    className="truncate text-[13px] font-semibold tracking-tight text-white sm:text-[13.5px]"
-                    style={{ textShadow: "0 1px 2px rgba(0,0,0,0.45)" }}
-                  >
-                    {t.label}
-                  </span>
-                  <ArrowUpRight
-                    className="h-3.5 w-3.5 shrink-0 text-white transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                    strokeWidth={2}
-                  />
+                <div className="absolute inset-x-2.5 bottom-2 flex items-end">
+                  <TemplateLabel id={t.id} label={t.label} />
                 </div>
               </div>
             </button>
@@ -1506,6 +1473,73 @@ function TemplatesStrip({
         </div>
       </div>
     </section>
+  );
+}
+
+/* Per-template label typography — each tile wears type that matches its style:
+   · Modern   → tight uppercase Manrope, wide tracking (swiss / contemporary)
+   · Classic  → Fraunces italic, looser kerning (magazine editorial)
+   · Rustic   → Fraunces with warm SOFT axis, heavier weight (hand-crafted) */
+function TemplateLabel({ id, label }: { id: string; label: string }) {
+  const baseStyle: React.CSSProperties = {
+    color: "#ffffff",
+    textShadow: "0 1px 3px rgba(0,0,0,0.55), 0 0 14px rgba(0,0,0,0.20)",
+  };
+
+  if (id === "modern") {
+    return (
+      <span
+        className="truncate"
+        style={{
+          ...baseStyle,
+          fontFamily: "var(--font-sans)",
+          fontWeight: 600,
+          fontSize: "12.5px",
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  if (id === "classic") {
+    return (
+      <span
+        className="truncate"
+        style={{
+          ...baseStyle,
+          fontFamily: "var(--font-display)",
+          fontStyle: "italic",
+          fontWeight: 400,
+          fontSize: "20px",
+          letterSpacing: "0.005em",
+          fontFeatureSettings: "'ss01', 'ss02'",
+          fontVariationSettings: "'opsz' 144, 'SOFT' 50",
+        }}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  // rustic
+  return (
+    <span
+      className="truncate"
+      style={{
+        ...baseStyle,
+        fontFamily: "var(--font-display)",
+        fontStyle: "normal",
+        fontWeight: 600,
+        fontSize: "18px",
+        letterSpacing: "-0.005em",
+        fontVariationSettings: "'opsz' 144, 'SOFT' 100",
+      }}
+    >
+      {label}
+    </span>
   );
 }
 
