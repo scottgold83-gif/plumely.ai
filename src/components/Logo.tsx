@@ -10,7 +10,7 @@ export function Logo({ size = 32, className, withWordmark = true }: LogoProps) {
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
       <Image
-        src="/logo.svg"
+        src="/logo.png"
         alt="Plumely"
         width={size}
         height={size}
