@@ -300,8 +300,17 @@ export default function StudioClient() {
 
       const res = await fetch("/api/generate", { method: "POST", body: fd });
       if (!res.ok) {
+        // Prefer the structured `error` field so users see the friendly
+        // message (e.g. rate-limit copy), not the raw JSON body.
         const text = await res.text();
-        throw new Error(text || `Request failed (${res.status})`);
+        let message = text;
+        try {
+          const parsed = JSON.parse(text) as { error?: string };
+          if (parsed?.error) message = parsed.error;
+        } catch {
+          // body wasn't JSON; fall through with raw text
+        }
+        throw new Error(message || `Request failed (${res.status})`);
       }
       const { id } = (await res.json()) as { id: string };
       dlog("handleSubmit:queued", { id });
@@ -424,13 +433,6 @@ export default function StudioClient() {
           </span>
         </footer>
       </main>
-
-      <MobileStickyCTA
-        ready={ready}
-        busy={busy}
-        status={status}
-        onSubmit={handleSubmit}
-      />
 
       {openTemplate && (
         <GalleryModal
@@ -790,8 +792,13 @@ function LoadingState({
 }) {
   const isFailed = status === "failed";
 
+  // When we have a specific server message (e.g. the rate-limit copy), let
+  // it stand on its own — no "Something went wrong" framing. The fallback
+  // headline only shows when the server didn't tell us anything specific.
   const headline = isFailed
-    ? "Something went wrong"
+    ? errorMessage
+      ? null
+      : "Please try again"
     : status === "uploading"
       ? "Uploading your photos"
       : status === "queued" || status === "pending"
@@ -805,7 +812,7 @@ function LoadingState({
         className="pointer-events-none absolute inset-0"
         style={{
           background: isFailed
-            ? "radial-gradient(45% 45% at 50% 50%, rgba(239, 68, 68, 0.18), transparent 70%)"
+            ? "radial-gradient(45% 45% at 50% 50%, rgba(239, 68, 68, 0.12), transparent 70%)"
             : "radial-gradient(45% 45% at 50% 50%, rgba(96, 165, 250, 0.22), transparent 70%)",
         }}
       />
@@ -818,15 +825,17 @@ function LoadingState({
         </div>
       )}
 
-      <p
-        className="relative text-[15px] font-semibold tracking-tight"
-        style={{ color: isFailed ? "#b91c1c" : "var(--color-ink)" }}
-      >
-        {headline}
-      </p>
+      {headline && (
+        <p
+          className="relative text-[15px] font-semibold tracking-tight"
+          style={{ color: isFailed ? "#7a3a3a" : "var(--color-ink)" }}
+        >
+          {headline}
+        </p>
+      )}
 
       {isFailed && errorMessage && (
-        <p className="relative max-w-[28rem] text-[12.5px] leading-[1.5] text-ink-muted">
+        <p className="relative max-w-[28rem] text-[15px] font-medium leading-[1.5] text-ink">
           {errorMessage}
         </p>
       )}
@@ -1082,21 +1091,21 @@ function Studio({
           <button
             onClick={onSubmit}
             disabled={disabled}
-            className="group relative inline-flex h-12 flex-1 items-center justify-center gap-2 overflow-hidden rounded-full text-[14px] font-semibold tracking-tight transition-colors duration-200 disabled:cursor-not-allowed"
+            className="group relative inline-flex h-14 flex-1 items-center justify-center gap-2 overflow-hidden rounded-full text-[16px] font-semibold tracking-tight transition-colors duration-200 disabled:cursor-not-allowed sm:h-12 sm:text-[14px]"
             style={{
               background: disabled
                 ? "rgba(14,12,8,0.12)"
                 : BLUE_DEEP,
               border: "none",
               color: disabled ? "rgba(14,12,8,0.40)" : "#ffffff",
-              boxShadow: disabled ? "none" : `0 8px 22px -8px ${BLUE_DEEP}80`,
+              boxShadow: disabled ? "none" : `0 10px 28px -8px ${BLUE_DEEP}90`,
             }}
           >
             {!disabled && <span aria-hidden className="btn-scan-overlay" />}
             <span className="relative z-10 flex items-center gap-2">
               {busy ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin sm:h-4 sm:w-4" />
                   {status === "uploading"
                     ? "Uploading…"
                     : status === "queued"
@@ -1107,7 +1116,7 @@ function Studio({
                 <>
                   Generate
                   <ArrowRight
-                    className="h-4 w-4 transition group-hover:translate-x-0.5"
+                    className="h-5 w-5 transition group-hover:translate-x-0.5 sm:h-4 sm:w-4"
                     strokeWidth={2.5}
                   />
                 </>
@@ -1711,65 +1720,6 @@ function TemplateThumbnail({ template }: { template: RoomTemplate }) {
       className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.05]"
       draggable={false}
     />
-  );
-}
-
-/* ────────────────────────────────────────────────────────────────────────── */
-
-function MobileStickyCTA({
-  ready,
-  busy,
-  status,
-  onSubmit,
-}: {
-  ready: boolean;
-  busy: boolean;
-  status: GenerationStatus;
-  onSubmit: () => void;
-}) {
-  if (!ready && !busy) return null;
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(env(safe-area-inset-bottom),10px)] pt-3 sm:hidden">
-      <div
-        className="rounded-full p-1 backdrop-blur-xl"
-        style={{
-          background: "rgba(255, 255, 255, 0.75)",
-          border: "1px solid rgba(14, 12, 8, 0.08)",
-          boxShadow:
-            "0 -8px 24px -8px rgba(14, 12, 8, 0.10), 0 -20px 60px -24px rgba(37, 99, 235, 0.35)",
-        }}
-      >
-        <button
-          onClick={onSubmit}
-          disabled={busy}
-          className="relative inline-flex h-11 w-full items-center justify-center gap-2 overflow-hidden rounded-full text-[14px] font-semibold tracking-tight text-white disabled:cursor-not-allowed"
-          style={{
-            background: BLUE_DEEP,
-            border: "none",
-            boxShadow: `0 8px 22px -8px ${BLUE_DEEP}80`,
-          }}
-        >
-          {!busy && <span aria-hidden className="btn-scan-overlay" />}
-          <span className="relative z-10 flex items-center gap-2">
-            {busy ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {status === "uploading"
-                  ? "Uploading…"
-                  : status === "queued"
-                    ? "Queued…"
-                    : "Generating…"}
-              </>
-            ) : (
-              <>
-                Generate
-                <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
-              </>
-            )}
-          </span>
-        </button>
-      </div>
-    </div>
   );
 }
 

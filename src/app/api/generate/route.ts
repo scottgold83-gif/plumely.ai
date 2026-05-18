@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { generateVisualization } from "@/trigger/generateVisualization";
+import { generateHourly, generateDaily, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -36,6 +37,31 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // --- Rate limiting: block abuse before any expensive work ---
+  const ip = clientIp(request);
+  const limitKeys = [`u:${user.id}`, `ip:${ip}`];
+  for (const key of limitKeys) {
+    const hour = await generateHourly.limit(key);
+    if (!hour.success) {
+      return NextResponse.json(
+        {
+          error:
+            "Your image generation limit has been reached. Please try again in a little while.",
+        },
+        { status: 429 },
+      );
+    }
+    const day = await generateDaily.limit(key);
+    if (!day.success) {
+      return NextResponse.json(
+        {
+          error:
+            "Your image generation limit has been reached for today. Please come back tomorrow.",
+        },
+        { status: 429 },
+      );
+    }
+  }
 
   const form = await request.formData();
   const room = form.get("room");
