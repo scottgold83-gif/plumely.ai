@@ -25,6 +25,7 @@ type GenerationStatus =
   | "idle"
   | "uploading"
   | "queued"
+  | "pending"
   | "running"
   | "succeeded"
   | "failed";
@@ -135,7 +136,10 @@ async function fetchPhotoAsFile(
 /* ────────────────────────────────────────────────────────────────────────── */
 
 export default function StudioClient() {
-  const supabase = createSupabaseBrowserClient();
+  // Lazy state init — create the supabase client EXACTLY once per mount,
+  // not on every render. Recreating it each render was making the auth
+  // effect re-fire on every render and racing the first Generate click.
+  const [supabase] = useState(() => createSupabaseBrowserClient());
 
   const [room, setRoom] = useState<File | null>(null);
   const [light, setLight] = useState<File | null>(null);
@@ -158,6 +162,11 @@ export default function StudioClient() {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
+  // Promise that resolves once the (anonymous) Supabase session is in place.
+  // `handleSubmit` awaits this before POSTing — otherwise the first click,
+  // fired before sign-in completes, returns 401 and looks like a no-op,
+  // forcing the user to click Generate multiple times.
+  const authReadyRef = useRef<Promise<void> | null>(null);
 
   // Initial hydration: read the human-verified flag, kick off anonymous sign-in if needed.
   useEffect(() => {
@@ -174,7 +183,7 @@ export default function StudioClient() {
 
     // Auto sign-in anonymously so the existing API/RLS flow keeps working.
     // Requires Anonymous Sign-Ins to be enabled in the Supabase project.
-    (async () => {
+    authReadyRef.current = (async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
         await supabase.auth.signInAnonymously();
@@ -197,25 +206,92 @@ export default function StudioClient() {
     };
   }, []);
 
+  // Scroll the preview into view both when generation starts (so the user
+  // sees the loading state) AND when the result arrives. Use `block: "center"`
+  // so the preview is anchored mid-viewport — the form/button stays partially
+  // visible above, instead of being scrolled off-screen. Track previous values
+  // so we only fire on the rising edge.
+  // "pending" is the DB's initial value — set when the row is inserted but
+  // before the Trigger.dev task picks it up. It is a BUSY state from the
+  // user's perspective, so include it; otherwise the preview unmounts as
+  // soon as the first poll lands.
+  const isBusyStatus =
+    status === "uploading" ||
+    status === "queued" ||
+    status === "pending" ||
+    status === "running";
+  const prevBusyRef = useRef(false);
+  const prevResultRef = useRef<string | null>(null);
   useEffect(() => {
-    if (resultUrl && resultRef.current) {
-      resultRef.current.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+    const justStarted = isBusyStatus && !prevBusyRef.current;
+    const justFinished = resultUrl && !prevResultRef.current;
+    if (justStarted || justFinished) {
+      // Wait two frames so the preview block has fully laid out and the
+      // fade-up animation has started — scrolling earlier targets the
+      // pre-layout position and the browser can race the smooth scroll.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resultRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        });
       });
     }
-  }, [resultUrl]);
+    prevBusyRef.current = isBusyStatus;
+    prevResultRef.current = resultUrl;
+  }, [isBusyStatus, resultUrl]);
+
+  // Diagnostic helper — timestamps every status/resultUrl transition and
+  // the preview-mount condition, so we can see in the console exactly when
+  // and why the preview disappears.
+  function dlog(tag: string, extra: Record<string, unknown> = {}) {
+    const ts = new Date().toISOString().slice(11, 23); // HH:MM:SS.mmm
+    // eslint-disable-next-line no-console
+    console.log(`[plumely ${ts}] ${tag}`, extra);
+  }
+
+  // Log every render's status/resultUrl/preview-mount outcome.
+  const willMountPreview =
+    isBusyStatus || !!resultUrl || status === "failed";
+  dlog("render", {
+    status,
+    resultUrl,
+    isBusyStatus,
+    willMountPreview,
+  });
 
   async function handleSubmit() {
     if (!room || !light) {
       setError("Add both a fixture and a room photo.");
       return;
     }
+    dlog("handleSubmit:start", { prevStatus: status });
     setError(null);
     setResultUrl(null);
     setStatus("uploading");
 
     try {
+      // Definitive session check right before POSTing — don't trust the
+      // background sign-in to have finished. If there's no session yet,
+      // sign in inline and WAIT. This guarantees the first click works.
+      if (authReadyRef.current) {
+        await authReadyRef.current;
+      }
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        const { error: signInErr } = await supabase.auth.signInAnonymously();
+        if (signInErr) {
+          throw new Error(
+            `Sign-in failed (${signInErr.message}). Please refresh and try again.`,
+          );
+        }
+        const { data: after } = await supabase.auth.getSession();
+        if (!after.session) {
+          throw new Error("Sign-in didn't establish a session. Refresh and try again.");
+        }
+      }
+
       const fd = new FormData();
       fd.append("room", room);
       fd.append("light", light);
@@ -228,10 +304,12 @@ export default function StudioClient() {
         throw new Error(text || `Request failed (${res.status})`);
       }
       const { id } = (await res.json()) as { id: string };
+      dlog("handleSubmit:queued", { id });
       setGenerationId(id);
       setStatus("queued");
       startPolling(id);
     } catch (err) {
+      dlog("handleSubmit:error", { message: err instanceof Error ? err.message : String(err) });
       setStatus("failed");
       setError(err instanceof Error ? err.message : "Something went wrong.");
     }
@@ -242,12 +320,21 @@ export default function StudioClient() {
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/generate/${id}`, { cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          dlog("poll:http-error", { id, httpStatus: res.status });
+          return;
+        }
         const data = (await res.json()) as {
           status: GenerationStatus;
           resultUrl: string | null;
           error: string | null;
         };
+        dlog("poll:response", {
+          id,
+          apiStatus: data.status,
+          hasResultUrl: !!data.resultUrl,
+          apiError: data.error,
+        });
         setStatus(data.status);
         if (data.status === "succeeded" && data.resultUrl) {
           setResultUrl(data.resultUrl);
@@ -256,7 +343,8 @@ export default function StudioClient() {
           setError(data.error ?? "Generation failed.");
           if (pollRef.current) clearInterval(pollRef.current);
         }
-      } catch {
+      } catch (err) {
+        dlog("poll:exception", { id, message: err instanceof Error ? err.message : String(err) });
         // swallow transient errors; next tick will retry
       }
     }, 2000);
@@ -287,8 +375,7 @@ export default function StudioClient() {
     if (pollRef.current) clearInterval(pollRef.current);
   }
 
-  const busy =
-    status === "uploading" || status === "queued" || status === "running";
+  const busy = isBusyStatus;
   const ready = !!light && !!room && !!meta.type;
 
   return (
@@ -452,7 +539,7 @@ function Atmosphere() {
 function Header() {
   return (
     <header className="relative z-20">
-      <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-center px-5 sm:h-16 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[1100px] items-center justify-start px-5 sm:h-16 sm:px-6">
         <Link
           href="/"
           aria-label="Plumely home"
@@ -502,7 +589,7 @@ function writeTypedFlag() {
 function TypedHeading() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  
+
   const [chars, setChars] = useState(() =>
     readTypedFlag() ? HEADING_TEXT.length : 0,
   );
@@ -532,7 +619,7 @@ function TypedHeading() {
   const buyShown =
     chars > BUY_START ? HEADING_TEXT.slice(BUY_START, Math.min(chars, BUY_END)) : "";
   const after = chars > BUY_END ? HEADING_TEXT.slice(BUY_END, chars) : "";
-if (!mounted) return null;
+  if (!mounted) return null;
   return (
     <h1
       className="mt-7 font-semibold leading-[1.0] tracking-[-0.045em] text-ink"
@@ -694,11 +781,20 @@ const COMPOSING_PHRASES = [
   "Adding the final glow",
 ];
 
-function LoadingState({ status }: { status: GenerationStatus }) {
-  const headline =
-    status === "uploading"
+function LoadingState({
+  status,
+  errorMessage,
+}: {
+  status: GenerationStatus;
+  errorMessage?: string | null;
+}) {
+  const isFailed = status === "failed";
+
+  const headline = isFailed
+    ? "Something went wrong"
+    : status === "uploading"
       ? "Uploading your photos"
-      : status === "queued"
+      : status === "queued" || status === "pending"
         ? "Lining up the render"
         : "Composing your room";
 
@@ -708,20 +804,32 @@ function LoadingState({ status }: { status: GenerationStatus }) {
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          background:
-            "radial-gradient(45% 45% at 50% 50%, rgba(96, 165, 250, 0.22), transparent 70%)",
+          background: isFailed
+            ? "radial-gradient(45% 45% at 50% 50%, rgba(239, 68, 68, 0.18), transparent 70%)"
+            : "radial-gradient(45% 45% at 50% 50%, rgba(96, 165, 250, 0.22), transparent 70%)",
         }}
       />
 
-      <div className="relative flex items-center gap-2.5">
-        <span aria-hidden className="loading-dot loading-dot-1" />
-        <span aria-hidden className="loading-dot loading-dot-2" />
-        <span aria-hidden className="loading-dot loading-dot-3" />
-      </div>
+      {!isFailed && (
+        <div className="relative flex items-center gap-2.5">
+          <span aria-hidden className="loading-dot loading-dot-1" />
+          <span aria-hidden className="loading-dot loading-dot-2" />
+          <span aria-hidden className="loading-dot loading-dot-3" />
+        </div>
+      )}
 
-      <p className="relative text-[15px] font-semibold tracking-tight text-ink">
+      <p
+        className="relative text-[15px] font-semibold tracking-tight"
+        style={{ color: isFailed ? "#b91c1c" : "var(--color-ink)" }}
+      >
         {headline}
       </p>
+
+      {isFailed && errorMessage && (
+        <p className="relative max-w-[28rem] text-[12.5px] leading-[1.5] text-ink-muted">
+          {errorMessage}
+        </p>
+      )}
 
       {status === "running" && <CyclingPhrase phrases={COMPOSING_PHRASES} />}
     </div>
@@ -741,6 +849,26 @@ function CyclingPhrase({ phrases }: { phrases: string[] }) {
     >
       {phrases[i]}
     </p>
+  );
+}
+
+/* ResultImage — fades in once the image bytes are actually decoded, so the
+   reveal feels like a soft develop rather than a snap. */
+function ResultImage({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+  // Reset when src changes (e.g. a new generation starts in the same session).
+  useEffect(() => {
+    setLoaded(false);
+  }, [src]);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Generated visualization"
+      onLoad={() => setLoaded(true)}
+      className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out"
+      style={{ opacity: loaded ? 1 : 0 }}
+    />
   );
 }
 
@@ -998,7 +1126,7 @@ function Studio({
                 : "Roughly 15 seconds"}
         </p>
 
-        {(busy || resultUrl) && (
+        {(busy || resultUrl || status === "failed") && (
           <div
             ref={resultRef}
             className="fade-up mt-7 pt-7"
@@ -1010,15 +1138,24 @@ function Studio({
               </p>
               <p
                 className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.22em]"
-                style={{ color: resultUrl ? BLUE_DARK : "var(--color-ink-soft)" }}
+                style={{
+                  color:
+                    status === "failed"
+                      ? "#b91c1c"
+                      : resultUrl
+                        ? BLUE_DARK
+                        : "var(--color-ink-soft)",
+                }}
               >
-                {resultUrl
-                  ? "Ready"
-                  : status === "uploading"
-                    ? "Uploading"
-                    : status === "queued"
-                      ? "Queued"
-                      : "Rendering"}
+                {status === "failed"
+                  ? "Failed"
+                  : resultUrl
+                    ? "Ready"
+                    : status === "uploading"
+                      ? "Uploading"
+                      : status === "queued" || status === "pending"
+                        ? "Queued"
+                        : "Rendering"}
               </p>
             </div>
 
@@ -1030,16 +1167,21 @@ function Studio({
                   "linear-gradient(160deg, #ffffff 0%, rgba(219, 234, 254, 0.55) 100%)",
               }}
             >
-              <div className="aspect-[16/10] w-full overflow-hidden">
-                {resultUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={resultUrl}
-                    alt="Generated visualization"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <LoadingState status={status} />
+              <div className="relative aspect-[16/10] w-full overflow-hidden">
+                {/* Loading state is always mounted while there's no result.
+                    Fading it out (rather than unmounting) means the result
+                    image cross-fades on top instead of hard-swapping. */}
+                <div
+                  className="absolute inset-0 transition-opacity duration-500 ease-out"
+                  style={{
+                    opacity: resultUrl ? 0 : 1,
+                    pointerEvents: resultUrl ? "none" : "auto",
+                  }}
+                >
+                  <LoadingState status={status} errorMessage={error} />
+                </div>
+                {resultUrl && (
+                  <ResultImage src={resultUrl} />
                 )}
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,8 @@ export async function GET(
 
   let resultUrl: string | null = null;
   if (gen.status === "succeeded" && gen.result_image_path) {
-    const { data: signed } = await supabase.storage
+    const admin = createSupabaseAdminClient();
+    const { data: signed } = await admin.storage
       .from(STORAGE_BUCKET)
       .createSignedUrl(gen.result_image_path, SIGNED_URL_TTL_SECONDS);
     resultUrl = signed?.signedUrl ?? null;

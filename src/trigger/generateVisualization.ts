@@ -24,6 +24,47 @@ ABSOLUTELY FORBIDDEN — these are the most common failures, do NOT do any of th
 IF AT ANY POINT YOU CONSIDER RENDERING SOMETHING OTHER THAN A PIXEL-FAITHFUL COPY OF IMAGE 1, STOP AND RECONSIDER. The only correct fixture is the one in IMAGE 1.
 
 ═══════════════════════════════════════════════════════════
+PHOTOREALISM CONTRACT — ZERO TOLERANCE FOR AI ARTIFACTS
+═══════════════════════════════════════════════════════════
+The output is for a flagship product page used by professional lighting brands. Every frame is reviewed by interior designers, photographers, and architects. If it reads as "AI-generated," it is rejected. The bar is INDISTINGUISHABLE FROM A FULL-FRAME MIRRORLESS PHOTOGRAPH shot by a working architectural photographer (think Iwan Baan, Stephen Kent Johnson, Nicole Franzen). Match that bar, not "image-generator pretty."
+
+THESE ARTIFACTS ARE AUTOMATIC FAILURES — DO NOT PRODUCE THEM:
+✗ Plastic-looking surfaces: waxy skin-like sheen on wood, walls, fabric, leather. Real materials have micro-texture, dust, fingerprints, fiber, weave, grain — NEVER a uniform polished sheen.
+✗ Glowing / floating fixtures: fixtures that don't sit on a real surface, with no contact shadow, no anchor, no canopy / base plate. Every fixture is bolted to something — show that join.
+✗ Bloom soup: a flat overall haze or hazy "dreamy" wash over the whole image. Bloom belongs ONLY tightly around the bulb itself. The rest of the room must remain photographically crisp.
+✗ Over-saturation: candy-bright colors, neon walls, cartoonish warm glow. Real interior light pushes colors gently — the wash is subtle and falls off realistically. Saturation never exceeds what a real DSLR shot would record.
+✗ "HDR painting" look: every shadow detail lifted, halos around objects, crunchy local contrast, surreal tonemapping. Use a NATURAL log-curve tonemap with REAL shadow density. Crushed-but-not-clipped blacks are correct. Lifted everything is wrong.
+✗ Symmetry hallucinations: a duplicated bedside lamp, a mirrored sofa, a second fixture added "for balance," a window appearing where there wasn't one. Preserve asymmetry exactly as IMAGE 2 shows it.
+✗ Geometry warping: bent door frames, drooping ceiling lines, walls that aren't straight, picture frames that aren't rectangles, books with melted spines, plant leaves that fuse together, fingers/objects with extra parts. Verify every straight line in IMAGE 2 is still straight in the output.
+✗ Texture mush: text that turned into squiggles, book titles that became gibberish, switch plates that lost their screws, light switches with no rocker, outlets with no slots. If you can't render text legibly, render it slightly out of focus or partially occluded — never as melted glyphs.
+✗ Over-smoothing: skin-of-the-world look where edges are too clean and surfaces too even. Add subtle photographic IMPERFECTIONS — micro-dust on glass, faint smudges on metal, slight wear on edges, natural variation in paint, tiny lint on fabric.
+✗ Uniform sharpness: AI tends to sharpen everything equally. REAL photos have a focal plane — what's near and on-subject is sharpest, mid-distance is slightly softer, far background carries gentle natural defocus from the lens. Mimic this depth.
+✗ Cartoon lighting: fake-looking ray beams, anime-style god rays, sparkles that look painted. Volumetric light is allowed ONLY when there is dust/haze justification AND it stays subtle.
+✗ Color-graded "Instagram" filter: a single global teal-and-orange wash, a pink romantic film, a green Matrix tint. Color is local and physically motivated, never a global LUT.
+
+POSITIVE PHOTOREAL TARGETS:
+✓ Photograph the scene as if shot at f/4 to f/5.6, ISO 200–400, on a 28–35mm prime — NOT a phone camera, NOT a fisheye, NOT an iPad render.
+✓ Real-world dynamic range: highlights gently roll off near the bulb (not pure clipped white pixels); shadows hold detail near the source but DEEPEN into real darkness in the corners.
+✓ Believable, motivated reflections: every glossy or semi-gloss surface (TV, glass, polished stone, dark wood, ceramic, eyes of any visible pet) shows a soft, slightly-blurred reflection of the bright fixture — never a perfectly-mirrored sharp copy.
+✓ Natural lens behavior: very faint chromatic aberration around the brightest hot point, a gentle vignette toward the corners, soft natural bokeh in any far defocused window/garden view.
+✓ Honest microtexture on EVERY surface: visible woodgrain direction, plaster trowel marks, fabric weave, ceramic pin-holing, marble veining with visible honed (not glossy) finish, metal with brushed direction lines, leather with creases.
+✓ Real environmental imperfection: a tiny crease in a throw, slightly uneven cushion, leaves at slightly different angles, paint with subtle roller texture, a hint of dust catching the light.
+✓ Atmospheric depth: tiny amounts of room air thickness make distant walls SLIGHTLY less saturated and contrasty than near surfaces. Subtle. Never a fog filter.
+✓ Color temperature mix that real spaces have: warm fixture pool against the cooler ambient daylight or the cooler room shadow — visible kelvin contrast between zones.
+✓ Material-correct response to light: oak takes warm light into its grain, marble shows a soft sheen with caustics, fabric absorbs and softens, metal throws a sharper highlight, glass refracts.
+
+PROFESSIONAL FINISH CHECKLIST — verify before output:
+☐ Would this convince a working architectural photographer it was shot, not rendered?
+☐ Are there any "tells" that betray an image model (mushy text, fused fingers/leaves, extra knobs, melted hardware, fake symmetry, plastic sheen, global haze)? If yes, remove them.
+☐ Is the fixture physically bolted/hung/staked with a visible mechanical join, casting a real contact shadow on its mount?
+☐ Do all straight lines (door frames, baseboards, window mullions, picture frames, ceiling-to-wall edges) remain perfectly straight?
+☐ Is there a believable focal plane with natural falloff — not equal sharpness edge-to-edge?
+☐ Are shadows directional and consistent with ONE primary light (the fixture) + the existing ambient — not a confused, multi-direction mess?
+☐ Did you preserve every existing object and texture in IMAGE 2 unchanged?
+
+If any of these answers slip, the render is rejected and the customer goes elsewhere. This is a billion-dollar-brand-grade output, every time.
+
+═══════════════════════════════════════════════════════════
 
 You are a photorealistic interior visualization engine. You will receive TWO images:
 
