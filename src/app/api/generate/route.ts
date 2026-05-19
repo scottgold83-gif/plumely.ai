@@ -72,7 +72,32 @@ export async function POST(request: NextRequest) {
     typeof userPromptRaw === "string"
       ? userPromptRaw.trim().slice(0, 400)
       : undefined;
-
+// --- Verify the Cloudflare Turnstile token (real bot check) ---
+  const turnstileToken = form.get("turnstileToken");
+  if (typeof turnstileToken !== "string" || !turnstileToken) {
+    return NextResponse.json(
+      { error: "Bot check failed. Please refresh and try again." },
+      { status: 403 },
+    );
+  }
+  const turnstileVerify = await fetch(
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: process.env.TURNSTILE_SECRET_KEY ?? "",
+        response: turnstileToken,
+      }),
+    },
+  );
+  const turnstileResult = (await turnstileVerify.json()) as { success: boolean };
+  if (!turnstileResult.success) {
+    return NextResponse.json(
+      { error: "Bot check failed. Please refresh and try again." },
+      { status: 403 },
+    );
+  }
   if (!(room instanceof File) || !(light instanceof File)) {
     return NextResponse.json(
       { error: "Both 'room' and 'light' files are required." },

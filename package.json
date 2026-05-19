@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.52.0",
+    "@marsidev/react-turnstile": "^1.5.2",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.3",
     "@trigger.dev/sdk": "4.4.6",

@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { Logo } from "@/components/Logo";
 
 type GenerationStatus =
@@ -155,9 +156,9 @@ export default function StudioClient() {
   const [error, setError] = useState<string | null>(null);
   const [openTemplate, setOpenTemplate] = useState<RoomTemplate | null>(null);
   const [userPrompt, setUserPrompt] = useState("");
-  // 'I am a human' gate — true once the user passes the checkbox.
-  // Read from sessionStorage so we don't re-prompt on every render in the same tab.
+  // 'I am a human' gate — now backed by a real Cloudflare Turnstile token.
   const [verifiedHuman, setVerifiedHuman] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -297,6 +298,7 @@ export default function StudioClient() {
       fd.append("light", light);
       fd.append("meta", JSON.stringify(meta));
       if (userPrompt.trim()) fd.append("userPrompt", userPrompt.trim());
+      fd.append("turnstileToken", turnstileToken ?? "");
 
       const res = await fetch("/api/generate", { method: "POST", body: fd });
       if (!res.ok) {
@@ -446,14 +448,9 @@ export default function StudioClient() {
 
       {hydrated && !verifiedHuman && (
         <HumanGate
-          onVerified={() => {
-            setVerifiedHuman(true);
-            try {
-              window.sessionStorage.setItem("plumely:human-verified", "1");
-            } catch {
-              // ignore
-            }
-          }}
+          token={turnstileToken}
+          onToken={setTurnstileToken}
+          onVerified={() => setVerifiedHuman(true)}
         />
       )}
     </div>
@@ -1727,13 +1724,16 @@ function TemplateThumbnail({ template }: { template: RoomTemplate }) {
 /* HumanGate — blocks the studio behind a single "I am a human" checkbox.    */
 /* Not real bot protection (Cloudflare Turnstile would be the upgrade).      */
 
-function HumanGate({ onVerified }: { onVerified: () => void }) {
-  const [checked, setChecked] = useState(false);
-
-  function handleContinue() {
-    if (!checked) return;
-    onVerified();
-  }
+function HumanGate({
+  token,
+  onToken,
+  onVerified,
+}: {
+  token: string | null;
+  onToken: (t: string | null) => void;
+  onVerified: () => void;
+}) {
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -1764,27 +1764,30 @@ function HumanGate({ onVerified }: { onVerified: () => void }) {
           renderer fast for everyone.
         </p>
 
-        <label className="mt-6 flex cursor-pointer items-center gap-3 rounded-xl border border-[rgba(14,12,8,0.14)] bg-white p-3.5 text-left transition hover:border-[rgba(14,12,8,0.28)]">
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={(e) => setChecked(e.target.checked)}
-            className="h-5 w-5 cursor-pointer accent-[#1e40af]"
-          />
-          <span className="text-[14px] font-medium text-ink">
-            I am a human
-          </span>
-        </label>
+        <div className="mt-6 flex justify-center">
+          {siteKey ? (
+            <Turnstile
+              siteKey={siteKey}
+              onSuccess={(t) => onToken(t)}
+              onError={() => onToken(null)}
+              onExpire={() => onToken(null)}
+            />
+          ) : (
+            <p className="text-[12px] text-ink-soft">
+              Bot check unavailable — missing site key.
+            </p>
+          )}
+        </div>
 
         <button
           type="button"
-          onClick={handleContinue}
-          disabled={!checked}
-          className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold tracking-tight text-white transition-colors disabled:cursor-not-allowed"
+          onClick={onVerified}
+          disabled={!token}
+          className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full text-[14px] font-semibold tracking-tight text-white transition-colors disabled:cursor-not-allowed"
           style={{
-            background: checked ? BLUE_DARK : "rgba(14,12,8,0.12)",
-            color: checked ? "#ffffff" : "rgba(14,12,8,0.40)",
-            boxShadow: checked ? `0 8px 22px -8px ${BLUE_DARK}80` : "none",
+            background: token ? BLUE_DARK : "rgba(14,12,8,0.12)",
+            color: token ? "#ffffff" : "rgba(14,12,8,0.40)",
+            boxShadow: token ? `0 8px 22px -8px ${BLUE_DARK}80` : "none",
           }}
         >
           Continue
