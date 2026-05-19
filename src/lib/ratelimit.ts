@@ -17,6 +17,13 @@ export const generateDaily = new Ratelimit({
   limiter: Ratelimit.slidingWindow(20, "24 h"),
   prefix: "rl:gen:day",
 });
+// 3 emails per hour per identifier
+export const emailHourly = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(3, "1 h"),
+  prefix: "rl:email:hour",
+  analytics: true,
+});
 
 export function clientIp(req: Request): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";

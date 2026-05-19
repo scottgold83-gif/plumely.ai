@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { emailHourly, clientIp } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,17 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  // --- Rate limiting: stop email-spam relay through your domain ---
+  const ip = clientIp(request);
+  for (const key of [`u:${user.id}`, `ip:${ip}`]) {
+    const { success } = await emailHourly.limit(key);
+    if (!success) {
+      return NextResponse.json(
+        { error: "Too many email requests. Please try again later." },
+        { status: 429 },
+      );
+    }
   }
 
   let body: EmailDesignBody;
@@ -133,10 +145,11 @@ export async function POST(request: NextRequest) {
     }),
   });
 
-  if (!resendRes.ok) {
+ if (!resendRes.ok) {
     const text = await resendRes.text();
+    console.error("Resend send failed:", resendRes.status, text);
     return NextResponse.json(
-      { error: `Email send failed: ${text}` },
+      { error: "We couldn't send that email. Please try again." },
       { status: 502 },
     );
   }
