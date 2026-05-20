@@ -31,6 +31,22 @@ type LightMeta = {
   type?: string;
 };
 
+// Verify that a file's actual bytes match a known image format (PNG, JPEG, WebP).
+// Defends against renamed/spoofed uploads that only claim to be images via MIME type.
+async function verifyImageMagicBytes(file: File): Promise<boolean> {
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  const isPng =
+    head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+  // JPEG: FF D8 FF
+  const isJpeg = head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+  // WebP: bytes 0-3 "RIFF", bytes 8-11 "WEBP"
+  const isWebp =
+    head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 &&
+    head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50;
+  return isPng || isJpeg || isWebp;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -114,6 +130,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "Each image must be 10 MB or smaller." },
       { status: 413 },
+    );
+  }
+  // Verify uploads are actually images by reading magic bytes (defense against MIME spoofing)
+  const [roomMagicOk, lightMagicOk] = await Promise.all([
+    verifyImageMagicBytes(room),
+    verifyImageMagicBytes(light),
+  ]);
+  if (!roomMagicOk || !lightMagicOk) {
+    return NextResponse.json(
+      { error: "Uploaded files must be valid JPEG, PNG, or WebP images." },
+      { status: 415 },
     );
   }
 
