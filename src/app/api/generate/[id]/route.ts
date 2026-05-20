@@ -40,7 +40,7 @@ export async function GET(
 
   return NextResponse.json({
     status: gen.status,
-    error: gen.error,
+    error: gen.error ? "Generation failed. Please try again." : null,
     resultUrl,
   });
 }
