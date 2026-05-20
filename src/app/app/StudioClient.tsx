@@ -438,6 +438,11 @@ setVerifiedHuman(false);
             Plumely · made with care
           </span>
         </footer>
+        <div className="mt-3 flex justify-start gap-4 text-[11px] uppercase tracking-[0.18em]" style={{ color: BLUE_DARK }}>
+              <a href="/privacy" className="hover:underline">Privacy</a>
+              <span aria-hidden>·</span>
+              <a href="/terms" className="hover:underline">Terms</a>
+            </div>
       </main>
 
       {openTemplate && (
