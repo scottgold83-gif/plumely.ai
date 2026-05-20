@@ -319,10 +319,14 @@ export default function StudioClient() {
       setGenerationId(id);
       setStatus("queued");
       startPolling(id);
+      setTurnstileToken(null);
+setVerifiedHuman(false);
     } catch (err) {
       dlog("handleSubmit:error", { message: err instanceof Error ? err.message : String(err) });
       setStatus("failed");
       setError(err instanceof Error ? err.message : "Something went wrong.");
+      setTurnstileToken(null);
+setVerifiedHuman(false);
     }
   }
 
