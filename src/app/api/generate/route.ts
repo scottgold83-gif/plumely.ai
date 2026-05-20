@@ -177,7 +177,11 @@ export async function POST(request: NextRequest) {
       .from("generations")
       .update({ status: "failed", error: uploadErr.message })
       .eq("id", generationId);
-    return NextResponse.json({ error: uploadErr.message }, { status: 500 });
+    console.error("Upload failed:", uploadErr.message);
+    return NextResponse.json(
+      { error: "We couldn't upload your photos. Please try again." },
+      { status: 500 },
+    );
   }
 
   // 3. Save light metadata if the user named it.
@@ -222,7 +226,8 @@ export async function POST(request: NextRequest) {
       .update({ trigger_run_id: handle.id })
       .eq("id", generationId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to queue task.";
+    const message = err instanceof Error ? "We couldn't queue your generation. Please try again." : "Failed to queue task.";
+    console.error("Trigger.dev queue failed:", err);
     await supabase
       .from("generations")
       .update({ status: "failed", error: message })
