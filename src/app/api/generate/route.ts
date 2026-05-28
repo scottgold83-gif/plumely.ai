@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { generateVisualization } from "@/trigger/generateVisualization";
-import { generateHourly, generateDaily, clientIp } from "@/lib/ratelimit";
+import {
+  generateHourly,
+  generateDaily,
+  generateIpHourly,
+  generateIpDaily,
+  clientIp,
+} from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 
@@ -54,29 +60,42 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   // --- Rate limiting: block abuse before any expensive work ---
-  const ip = clientIp(request);
-  const limitKeys = [`u:${user.id}`, `ip:${ip}`];
-  for (const key of limitKeys) {
-    const hour = await generateHourly.limit(key);
-    if (!hour.success) {
-      return NextResponse.json(
-        {
-          error:
-            "Your image generation limit has been reached. Please try again in a little while.",
-        },
-        { status: 429 },
-      );
-    }
-    const day = await generateDaily.limit(key);
-    if (!day.success) {
-      return NextResponse.json(
-        {
-          error:
-            "Your image generation limit has been reached for today. Please come back tomorrow.",
-        },
-        { status: 429 },
-      );
-    }
+  // Per-device allowance: each anonymous session (one per phone) gets its own bucket,
+  // so customers on shared store WiFi don't share a single limit.
+  const sessionKey = `u:${user.id}`;
+  if (!(await generateHourly.limit(sessionKey)).success) {
+    return NextResponse.json(
+      {
+        error:
+          "Your image generation limit has been reached. Please try again in a little while.",
+      },
+      { status: 429 },
+    );
+  }
+  if (!(await generateDaily.limit(sessionKey)).success) {
+    return NextResponse.json(
+      {
+        error:
+          "Your image generation limit has been reached for today. Please come back tomorrow.",
+      },
+      { status: 429 },
+    );
+  }
+  // Per-IP ceiling: coarse backstop against one person cycling cookies for fresh
+  // sessions. High enough not to lock out a busy store on shared WiFi.
+  const ipKey = `ip:${clientIp(request)}`;
+  const [ipHour, ipDay] = [
+    await generateIpHourly.limit(ipKey),
+    await generateIpDaily.limit(ipKey),
+  ];
+  if (!ipHour.success || !ipDay.success) {
+    return NextResponse.json(
+      {
+        error:
+          "This location has reached its generation limit. Please try again in a little while.",
+      },
+      { status: 429 },
+    );
   }
 
   const form = await request.formData();
@@ -107,8 +126,17 @@ export async function POST(request: NextRequest) {
       }),
     },
   );
-  const turnstileResult = (await turnstileVerify.json()) as { success: boolean };
+  const turnstileResult = (await turnstileVerify.json()) as {
+    success: boolean;
+    "error-codes"?: string[];
+    hostname?: string;
+  };
   if (!turnstileResult.success) {
+    console.error("[turnstile] verification failed", {
+      errorCodes: turnstileResult["error-codes"],
+      hostname: turnstileResult.hostname,
+      secretSet: Boolean(process.env.TURNSTILE_SECRET_KEY),
+    });
     return NextResponse.json(
       { error: "Bot check failed. Please refresh and try again." },
       { status: 403 },
