@@ -7,6 +7,8 @@ import {
   generateIpHourly,
   generateIpDaily,
   clientIp,
+  checkGlobalDailyCap,
+  incrementGlobalDailyCount,
 } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
@@ -59,6 +61,17 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // --- Global daily cost cap: protect against a runaway Gemini bill across ALL
+  // users. Checked before the per-session/per-IP limits and before any expensive
+  // work. Placed just after auth since unauthenticated requests (401) never
+  // generate and so never consume budget.
+  const globalCap = await checkGlobalDailyCap();
+  if (globalCap.capReached) {
+    return NextResponse.json(
+      { error: "We've reached today's capacity — please try again tomorrow." },
+      { status: 429 },
+    );
+  }
   // --- Rate limiting: block abuse before any expensive work ---
   // Per-device allowance: each anonymous session (one per phone) gets its own bucket,
   // so customers on shared store WiFi don't share a single limit.
@@ -288,6 +301,15 @@ export async function POST(request: NextRequest) {
       .update({ status: "failed", error: message })
       .eq("id", generationId);
     return NextResponse.json({ error: message }, { status: 502 });
+  }
+
+  // Generation successfully queued — count it toward the global daily cap.
+  // Fail-open: it's already running, so a counter write error must not surface
+  // as an error to the user (we'd be failing a working generation).
+  try {
+    await incrementGlobalDailyCount();
+  } catch (err) {
+    console.error("[cost-cap] increment failed:", err);
   }
 
   return NextResponse.json({ id: generationId });
