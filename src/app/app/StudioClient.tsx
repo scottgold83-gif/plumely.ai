@@ -332,7 +332,21 @@ setVerifiedHuman(false);
 
   function startPolling(id: string) {
     if (pollRef.current) clearInterval(pollRef.current);
+    // Client-side give-up: if the generation never reaches a terminal state
+    // (e.g. the Trigger.dev task dies without writing status:"failed"), stop
+    // polling and surface a failure instead of spinning forever.
+    const startedAt = Date.now();
+    const DEADLINE_MS = 3 * 60 * 1000; // 3 minutes
     pollRef.current = setInterval(async () => {
+      if (Date.now() - startedAt > DEADLINE_MS) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        dlog("poll:deadline", { id, elapsedMs: Date.now() - startedAt });
+        setStatus("failed");
+        setError(
+          "This is taking longer than expected. Please try again in a moment.",
+        );
+        return;
+      }
       try {
         const res = await fetch(`/api/generate/${id}`, { cache: "no-store" });
         if (!res.ok) {
@@ -363,6 +377,31 @@ setVerifiedHuman(false);
         // swallow transient errors; next tick will retry
       }
     }, 2000);
+  }
+
+  // Re-poll the generation once to mint a fresh signed result URL. Used by the
+  // result image's "Try again" when the preview fails to load (e.g. the signed
+  // URL expired). Returns true if a fresh succeeded-URL was obtained.
+  async function refreshResultUrl(): Promise<boolean> {
+    if (!generationId) return false;
+    try {
+      const res = await fetch(`/api/generate/${generationId}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) return false;
+      const data = (await res.json()) as {
+        status: GenerationStatus;
+        resultUrl: string | null;
+        error: string | null;
+      };
+      if (data.status === "succeeded" && data.resultUrl) {
+        setResultUrl(data.resultUrl);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 
   async function selectGalleryPhoto(path: string, templateLabel: string) {
@@ -422,6 +461,7 @@ setVerifiedHuman(false);
           showReset={!!resultUrl || status === "failed"}
           resultUrl={resultUrl}
           generationId={generationId}
+          onRefreshResult={refreshResultUrl}
           resultRef={resultRef}
           userPrompt={userPrompt}
           setUserPrompt={setUserPrompt}
@@ -869,18 +909,68 @@ function CyclingPhrase({ phrases }: { phrases: string[] }) {
 
 /* ResultImage — fades in once the image bytes are actually decoded, so the
    reveal feels like a soft develop rather than a snap. */
-function ResultImage({ src }: { src: string }) {
+function ResultImage({
+  src,
+  onRetry,
+}: {
+  src: string;
+  onRetry?: () => Promise<boolean>;
+}) {
   const [loaded, setLoaded] = useState(false);
+  const [errored, setErrored] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  // Bumped on retry to force the <img> to remount and re-request, even if the
+  // refreshed signed URL comes back identical (e.g. not yet expired).
+  const [reloadKey, setReloadKey] = useState(0);
   // Reset when src changes (e.g. a new generation starts in the same session).
   useEffect(() => {
     setLoaded(false);
+    setErrored(false);
   }, [src]);
+
+  async function handleRetry() {
+    if (retrying) return;
+    setRetrying(true);
+    // Re-poll for a fresh signed URL; ignore the result — we remount either way
+    // so a transient network failure on the same URL also gets a fresh request.
+    await onRetry?.();
+    setErrored(false);
+    setLoaded(false);
+    setReloadKey((k) => k + 1);
+    setRetrying(false);
+  }
+
+  if (errored) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-6 text-center">
+        <p className="text-[12.5px] font-medium tracking-tight text-ink">
+          Couldn&rsquo;t load the image
+        </p>
+        <p className="text-[11px] leading-[1.5] text-ink-soft">
+          Your render is ready, but the preview didn&rsquo;t load &mdash;
+          usually a network hiccup.
+        </p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          disabled={retrying}
+          className="mt-1 inline-flex h-8 items-center rounded-full px-4 text-[12px] font-semibold text-white transition hover:opacity-95 disabled:cursor-wait disabled:opacity-70"
+          style={{ background: BLUE_DARK }}
+        >
+          {retrying ? "Retrying…" : "Try again"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      key={reloadKey}
       src={src}
       alt="Generated visualization"
       onLoad={() => setLoaded(true)}
+      onError={() => setErrored(true)}
       className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-out"
       style={{ opacity: loaded ? 1 : 0 }}
     />
@@ -905,6 +995,7 @@ function Studio({
   showReset,
   resultUrl,
   generationId,
+  onRefreshResult,
   resultRef,
   userPrompt,
   setUserPrompt,
@@ -924,6 +1015,7 @@ function Studio({
   showReset: boolean;
   resultUrl: string | null;
   generationId: string | null;
+  onRefreshResult: () => Promise<boolean>;
   resultRef: React.RefObject<HTMLDivElement | null>;
   userPrompt: string;
   setUserPrompt: (v: string) => void;
@@ -1196,7 +1288,7 @@ function Studio({
                   <LoadingState status={status} errorMessage={error} />
                 </div>
                 {resultUrl && (
-                  <ResultImage src={resultUrl} />
+                  <ResultImage src={resultUrl} onRetry={onRefreshResult} />
                 )}
               </div>
             </div>
