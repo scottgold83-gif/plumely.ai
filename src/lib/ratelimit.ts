@@ -24,14 +24,14 @@ export const generateDaily = new Ratelimit({
 // enough to throttle one person cycling cookies from a single connection.
 export const generateIpHourly = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(150, "1 h"),
+  limiter: Ratelimit.slidingWindow(400, "1 h"),
   prefix: "rl:gen:ip:hour",
   analytics: true,
 });
 
 export const generateIpDaily = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(400, "24 h"),
+  limiter: Ratelimit.slidingWindow(2000, "24 h"),
   prefix: "rl:gen:ip:day",
 });
 
@@ -63,11 +63,13 @@ function globalDailyKey(): string {
   return `cost:global:${day}`;
 }
 
-// Limit from env (MAX_DAILY_GENERATIONS), defaulting to 500. Guards against
-// non-numeric / non-positive values.
+// Limit from env (MAX_DAILY_GENERATIONS), defaulting to 2500 — set just above
+// the per-IP daily ceiling (2000) so the global cap is a true safety net, not a
+// bottleneck, even if the env var is unset. Guards against non-numeric / non-
+// positive values.
 export function maxDailyGenerations(): number {
   const parsed = Number(process.env.MAX_DAILY_GENERATIONS);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 500;
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 2500;
 }
 
 // Read-only check of today's global counter. Does NOT increment — callers
