@@ -478,7 +478,7 @@ setVerifiedHuman(false);
             Plumely · made with care
           </span>
         </footer>
-        <div className="mt-3 flex justify-start gap-4 text-[11px] uppercase tracking-[0.18em]" style={{ color: BLUE_DARK }}>
+        <div className="mt-1 flex justify-center gap-4 text-[11px] uppercase tracking-[0.18em]" style={{ color: BLUE_DARK }}>
               <a href="/privacy" className="hover:underline">Privacy</a>
               <span aria-hidden>·</span>
               <a href="/terms" className="hover:underline">Terms</a>
@@ -1615,10 +1615,10 @@ function UploadTile({
         background: "linear-gradient(160deg, #ffffff 0%, rgba(219, 234, 254, 0.55) 100%)",
         border: isOver
           ? `1px solid ${BLUE}`
-          : "1px dashed rgba(14, 12, 8, 0.14)",
+          : "none",
         boxShadow: isOver
           ? `0 0 0 3px rgba(59,130,246,0.18), 0 16px 36px -10px ${BLUE_DEEP}66`
-          : undefined,
+          : "0 4px 20px rgba(0,0,0,0.08)",
       }}
     >
       {/* Subtle slow scan sweep — staggered between the two upload tiles */}
@@ -1699,7 +1699,8 @@ function TemplatesStrip({
               style={{
                 background:
                   "linear-gradient(160deg, #ffffff 0%, rgba(219, 234, 254, 0.55) 100%)",
-                border: "1px dashed rgba(14, 12, 8, 0.14)",
+                border: "none",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
               }}
             >
               <div className="relative aspect-square w-full overflow-hidden">
