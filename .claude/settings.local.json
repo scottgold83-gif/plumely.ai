@@ -4,7 +4,18 @@
       "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); git --version)",
       "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); npx skills add https://github.com/anthropics/skills --skill frontend-design --yes --global)",
       "PowerShell(npm install '@supabase/supabase-js' '@supabase/ssr' '@google/genai' '@trigger.dev/sdk' lucide-react 2>&1)",
-      "PowerShell(node -e \"console.log\\(require\\('./package.json'\\).dependencies['@google/genai'] || 'NOT INSTALLED'\\)\")"
+      "PowerShell(node -e \"console.log\\(require\\('./package.json'\\).dependencies['@google/genai'] || 'NOT INSTALLED'\\)\")",
+      "WebSearch",
+      "Bash(git commit *)",
+      "Bash(git config *)",
+      "Bash(git push *)",
+      "Bash(npm run *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(gh pr create --base main --head result-image-retry-poll-deadline --title 'Add result-image retry and a polling deadline' --body ' *)",
+      "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { $g.Source } else { \"gh-not-found\" })",
+      "Bash(git pull *)",
+      "Bash(git branch *)"
     ]
   }
 }
