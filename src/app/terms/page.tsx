@@ -78,7 +78,7 @@ export default function TermsOfServicePage() {
         <p>
           You confirm that you have the legal right to upload each photo. You can request deletion
           at any time by emailing{" "}
-          <a href="mailto:[email protected]" className="underline">[email protected]</a>.
+          <a href="mailto:team@plumely.ai" className="underline">team@plumely.ai</a>.
         </p>
 
         <h2 className="text-xl font-semibold mt-10">6. AI-generated content</h2>
@@ -151,7 +151,7 @@ export default function TermsOfServicePage() {
           Any dispute shall be subject to the exclusive jurisdiction of the South African courts.
           Before taking legal action, we both agree to attempt to resolve the dispute in good
           faith by contacting us at{" "}
-          <a href="mailto:[email protected]" className="underline">[email protected]</a>.
+          <a href="mailto:team@plumely.ai" className="underline">team@plumely.ai</a>.
         </p>
 
         <h2 className="text-xl font-semibold mt-10">14. Changes to these Terms</h2>
@@ -171,7 +171,7 @@ export default function TermsOfServicePage() {
         <p>
           <strong>Plumely</strong><br />
           Email:{" "}
-          <a href="mailto:[email protected]" className="underline">[email protected]</a><br />
+          <a href="mailto:team@plumely.ai" className="underline">team@plumely.ai</a><br />
           Website:{" "}
           <a href="https://plumely.ai" className="underline">https://plumely.ai</a>
         </p>

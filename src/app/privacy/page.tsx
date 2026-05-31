@@ -31,8 +31,8 @@ export default function PrivacyPolicyPage() {
         </p>
         <p>
           For any privacy-related questions, contact us at{" "}
-          <a href="mailto:[email protected]" className="underline">
-            [email protected]
+          <a href="mailto:team@plumely.ai" className="underline">
+            team@plumely.ai
           </a>
           .
         </p>
@@ -121,7 +121,7 @@ export default function PrivacyPolicyPage() {
         </ol>
         <p>
           To exercise any of these rights, email{" "}
-          <a href="mailto:[email protected]" className="underline">[email protected]</a>.
+          <a href="mailto:team@plumely.ai" className="underline">team@plumely.ai</a>.
           We will respond within 30 days.
         </p>
         <p>
@@ -156,7 +156,7 @@ export default function PrivacyPolicyPage() {
         <p>
           <strong>Plumely</strong><br />
           Email:{" "}
-          <a href="mailto:[email protected]" className="underline">[email protected]</a><br />
+          <a href="mailto:team@plumely.ai" className="underline">team@plumely.ai</a><br />
           Website:{" "}
           <a href="https://plumely.ai" className="underline">https://plumely.ai</a>
         </p>
